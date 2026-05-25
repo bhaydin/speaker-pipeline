@@ -54,17 +54,68 @@ jobs:
           sys.exit(1 if failed else 0)
           "
 
-  # ---------------------------------------------------------------------------
-  # Phase 2 — uncomment when src/ contains a .NET solution.
-  # ---------------------------------------------------------------------------
-  # build-dotnet:
-  #   name: Build .NET solution
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-dotnet@v4
-  #       with:
-  #         dotnet-version: "9.0.x"
-  #     - run: dotnet restore src/
-  #     - run: dotnet build src/ --configuration Release --no-restore
-  #     - run: dotnet test  src/ --configuration Release --no-build --verbosity normal
+  build-and-test:
+    name: Build and test .NET solution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore SpeakerPipeline.slnx
+
+      - name: Build
+        run: dotnet build SpeakerPipeline.slnx --configuration Release --no-restore
+
+      - name: Unit tests
+        run: |
+          dotnet test tests/SpeakerPipeline.Core.Tests              --configuration Release --no-build --logger "trx;LogFileName=core.trx"
+          dotnet test tests/SpeakerPipeline.Storage.Tests           --configuration Release --no-build --logger "trx;LogFileName=storage.trx"
+          dotnet test tests/SpeakerPipeline.Api.Tests               --configuration Release --no-build --logger "trx;LogFileName=api.trx"
+          dotnet test tests/SpeakerPipeline.Agents.Scoring.Tests    --configuration Release --no-build --logger "trx;LogFileName=agent.trx"
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: "**/TestResults/*.trx"
+
+  evals:
+    name: Scoring-agent eval suite
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    # NOTE: failing evals do NOT fail the build today. The runner writes an
+    # evals-report.json artifact and surfaces drift via xUnit's standard
+    # output. Flip continue-on-error to false once the golden set is stable
+    # and we want hard CI failure on drift. See tests/SpeakerPipeline.Agents.Scoring.Evals/README.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore SpeakerPipeline.slnx
+
+      - name: Build evals
+        run: dotnet build tests/SpeakerPipeline.Agents.Scoring.Evals --configuration Release --no-restore
+
+      - name: Run evals
+        run: dotnet test tests/SpeakerPipeline.Agents.Scoring.Evals --configuration Release --no-build --logger "trx;LogFileName=evals.trx"
+
+      - name: Upload evals report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-report
+          path: |
+            tests/SpeakerPipeline.Agents.Scoring.Evals/bin/Release/net10.0/evals-report.json
+            **/TestResults/evals.trx
