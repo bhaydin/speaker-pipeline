@@ -1,0 +1,14 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information"
+    }
+  },
+  "Storage": {
+    "TableEndpoint": "https://<your-storage-account>.table.core.windows.net"
+  },
+  "ApplicationInsights": {
+    "ConnectionString": ""
+  }
+}
