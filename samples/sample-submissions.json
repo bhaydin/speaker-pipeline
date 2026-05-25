@@ -1,0 +1,46 @@
+[
+  {
+    "PartitionKey": "great-lakes-cloud-conf-2027",
+    "RowKey": "agentops-real-world-2026-11-12",
+    "EventName": "Great Lakes Cloud Conf 2027",
+    "TalkSlug": "agentops-real-world",
+    "TalkTitleUsed": "AgentOps in the Real World: Lessons from a Multi-Agent Pipeline",
+    "AbstractUsed": "A walk through a real multi-agent system on Microsoft Agent Framework and Azure AI Foundry — the observability, idempotency, and identity patterns that turned a clever demo into something I would let page me at 2 AM.",
+    "SubmittedOnUtc": "2026-11-12T14:05:00Z",
+    "Status": "Accepted",
+    "DecisionReceivedUtc": "2026-12-18T16:20:00Z",
+    "ContactPerson": "Program Chair (placeholder)",
+    "ContactEmail": "<placeholder-organizer-email>",
+    "Notes": "Confirmed for the AgentOps track; 60 min slot.",
+    "SchemaVersion": 1
+  },
+  {
+    "PartitionKey": "northwoods-tech-summit-2027",
+    "RowKey": "hybrid-agents-sweet-spot-2027-01-22",
+    "EventName": "Northwoods Tech Summit 2027",
+    "TalkSlug": "hybrid-agents-sweet-spot",
+    "TalkTitleUsed": "Hybrid Agents Unleashed: Copilot Studio Meets Pro-Code",
+    "AbstractUsed": "Low-code Copilot Studio agents and pro-code Microsoft Agent Framework agents are layers, not rivals. This session walks through three real workloads and shows where each platform earns its keep — and how they share a single Foundry model fabric without stepping on each other.",
+    "SubmittedOnUtc": "2027-01-22T18:42:00Z",
+    "Status": "InReview",
+    "ContactPerson": "Track Lead (placeholder)",
+    "ContactEmail": "<placeholder-organizer-email>",
+    "FollowUpNeededBy": "2027-03-15T00:00:00Z",
+    "Notes": "Backup option: AgentOps in the Real World if track fit is wrong.",
+    "SchemaVersion": 1
+  },
+  {
+    "PartitionKey": "headwaters-codecamp-2027",
+    "RowKey": "foundry-for-enterprise-2027-01-09",
+    "EventName": "Headwaters CodeCamp 2027",
+    "TalkSlug": "foundry-for-enterprise",
+    "TalkTitleUsed": "Azure AI Foundry for Enterprise: Patterns That Hold Up Under Audit",
+    "AbstractUsed": "Most Foundry demos run with an open subscription and a personal key. Enterprise reality has private endpoints, conditional access, customer-managed keys, and a finance team that wants per-token attribution. Five patterns that bridge the gap.",
+    "SubmittedOnUtc": "2027-01-09T13:10:00Z",
+    "Status": "Submitted",
+    "ContactPerson": "Organizer (placeholder)",
+    "ContactEmail": "<placeholder-organizer-email>",
+    "FollowUpNeededBy": "2027-03-01T00:00:00Z",
+    "SchemaVersion": 1
+  }
+]

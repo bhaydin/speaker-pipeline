@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-lint:
+    name: Lint markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.41.0
+
+      - name: Lint markdown
+        run: markdownlint "**/*.md" --ignore node_modules --ignore LICENSE --ignore NOTICE
+
+  validate-samples:
+    name: Validate sample JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate JSON parses
+        run: |
+          python -c "
+          import json, sys, pathlib
+          failed = False
+          for p in pathlib.Path('samples').glob('*.json'):
+              try:
+                  json.loads(p.read_text())
+                  print(f'ok  {p}')
+              except json.JSONDecodeError as e:
+                  print(f'FAIL {p}: {e}', file=sys.stderr)
+                  failed = True
+          sys.exit(1 if failed else 0)
+          "
+
+  # ---------------------------------------------------------------------------
+  # Phase 2 — uncomment when src/ contains a .NET solution.
+  # ---------------------------------------------------------------------------
+  # build-dotnet:
+  #   name: Build .NET solution
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-dotnet@v4
+  #       with:
+  #         dotnet-version: "9.0.x"
+  #     - run: dotnet restore src/
+  #     - run: dotnet build src/ --configuration Release --no-restore
+  #     - run: dotnet test  src/ --configuration Release --no-build --verbosity normal
