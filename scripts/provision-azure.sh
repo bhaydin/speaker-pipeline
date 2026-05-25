@@ -8,7 +8,7 @@
 #   - Three tables: Events, Submissions, Talks
 #   - Storage Table Data Contributor role assignment for the MAF managed identity
 #
-# Commands mirror docs/pipeline_table_storage_schema.md §1. Treat the schema
+# Commands mirror docs/architecture-table-storage.md §1. Treat the schema
 # doc as the source of truth — if the two diverge, update this script.
 #
 # Prereqs:

@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Reads sanitized JSON arrays from ../samples/ and upserts them into the
-    three tables defined in docs/pipeline_table_storage_schema.md. Used as
+    three tables defined in docs/architecture-table-storage.md. Used as
     a one-shot bootstrap after running scripts/provision-azure.sh.
 
     Auth is via DefaultAzureCredential — make sure you are logged in (`az login`

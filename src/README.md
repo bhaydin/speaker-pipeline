@@ -16,5 +16,5 @@ src/
 ```
 
 See [../docs/architecture-overview.md](../docs/architecture-overview.md) for
-the Phase 2 build order and [../docs/pipeline_table_storage_schema.md](../docs/pipeline_table_storage_schema.md)
+the Phase 2 build order and [../docs/architecture-table-storage.md](../docs/architecture-table-storage.md)
 for the persistence contract.

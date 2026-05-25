@@ -15,7 +15,7 @@ The architecture deliberately combines two agent platforms. **Microsoft Agent Fr
 
 ## Ground truth: persistence schema
 
-[docs/pipeline_table_storage_schema.md](docs/pipeline_table_storage_schema.md) is the authoritative spec for the `Events`, `Submissions`, and `Talks` tables — fields, types, partition strategy, query patterns, gotchas. **If your work touches the data layer, read it first and align to it.** Don't restate the schema elsewhere; link to that file.
+[docs/architecture-table-storage.md](docs/architecture-table-storage.md) is the authoritative spec for the `Events`, `Submissions`, and `Talks` tables — fields, types, partition strategy, query patterns, gotchas. **If your work touches the data layer, read it first and align to it.** Don't restate the schema elsewhere; link to that file.
 
 ## Hard rules
 

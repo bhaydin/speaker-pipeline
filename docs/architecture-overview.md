@@ -1,6 +1,6 @@
 # Architecture Overview
 
-A high-level walk through how this pipeline is shaped. For the persistence contract, see [pipeline_table_storage_schema.md](pipeline_table_storage_schema.md) — that file is the ground truth for `Events`, `Submissions`, and `Talks`. This document deliberately does not restate the schema; it explains how the agents move data through it.
+A high-level walk through how this pipeline is shaped. For the persistence contract, see [architecture-table-storage.md](architecture-table-storage.md) — that file is the ground truth for `Events`, `Submissions`, and `Talks`. This document deliberately does not restate the schema; it explains how the agents move data through it.
 
 ## One picture
 
