@@ -15,7 +15,7 @@ Don't write one for routine fixes, refactors, doc tweaks, or anything that would
 
 ## Filename convention
 
-```
+```text
 NNNN-short-kebab-case-title.md
 ```
 
@@ -67,4 +67,4 @@ Links to related ADRs, docs, issues, or external material.
 
 ## Index
 
-_(No ADRs yet. The first one will likely be `0001-use-azure-table-storage.md` once Phase 2 begins.)_
+*(No ADRs yet. The first one will likely be `0001-use-azure-table-storage.md` once Phase 2 begins.)*

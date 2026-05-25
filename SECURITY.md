@@ -6,7 +6,7 @@ This is an agent-driven system that touches real cloud resources and (eventually
 
 **Please do not open a public GitHub issue for security problems.**
 
-Email **brian@brianhaydin.com** with:
+Email **[brian@brianhaydin.com](mailto:brian@brianhaydin.com)** with:
 
 - A description of the issue and the impact you believe it has
 - Steps to reproduce, or a proof-of-concept if you have one

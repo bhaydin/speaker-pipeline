@@ -79,6 +79,7 @@ az role assignment create \
 | `SchemaVersion` | int |  | `1` initially. Lets you migrate later without rewriting all rows. |
 
 **Sample entity (JSON):**
+
 ```json
 {
   "PartitionKey": "events",
@@ -129,6 +130,7 @@ az role assignment create \
 | `SchemaVersion` | int |  | `1` |
 
 **Sample (one of the four PPCC submissions):**
+
 ```json
 {
   "PartitionKey": "ppcc-2026",

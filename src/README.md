@@ -4,7 +4,7 @@ Placeholder for the .NET solution that lands in **Phase 2**.
 
 Planned shape:
 
-```
+```text
 src/
   SpeakerPipeline.sln
   SpeakerPipeline.Agents/                  — MAF agent host

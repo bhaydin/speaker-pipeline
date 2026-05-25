@@ -23,7 +23,7 @@ Phase 2 will fill this in with concrete `dotnet` / `pwsh` / `openclaw` commands.
 
 This repo uses [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 feat: add Sessionize discovery agent
 fix: prevent duplicate Events upserts when slug collides
 docs: clarify partition strategy in schema doc
@@ -41,4 +41,4 @@ Common prefixes: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`.
 
 ## Code of conduct
 
-Be respectful, assume good faith, and remember this repo is a public reference. If something feels off, email **brian@brianhaydin.com** directly.
+Be respectful, assume good faith, and remember this repo is a public reference. If something feels off, email **[brian@brianhaydin.com](mailto:brian@brianhaydin.com)** directly.
