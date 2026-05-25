@@ -38,6 +38,25 @@ ScaffoldingReadMe.txt
 
 # dotenv environment variables file
 .env
+.env.*
+
+# Visual Studio user-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# Local development settings — never check these in
+appsettings.Development.json
+appsettings.Local.json
+
+# Project-specific: never commit real pipeline data or local secrets
+**/local-data/
+**/secrets/
+.openclaw/
+
+# Claude Code — user-local settings only; shared settings.json is committed
+.claude/settings.local.json
 
 # Others
 ~$*
