@@ -1,0 +1,70 @@
+name: Deploy Functions to Azure
+ 
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/SpeakerPipeline.Hosting.Functions/**'
+      - 'src/SpeakerPipeline.Agents.Scoring/**'
+      - 'src/SpeakerPipeline.Core/**'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+ 
+env:
+  AZURE_FUNCTIONAPP_NAME: func-speakerpipeline-dev
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './publish'
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: src/SpeakerPipeline.Hosting.Functions/SpeakerPipeline.Hosting.Functions.csproj
+ 
+permissions:
+  id-token: write
+  contents: read
+ 
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+ 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-quality: 'preview'
+ 
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+ 
+      - name: Build
+        run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+ 
+      - name: Run scoring agent tests
+        run: dotnet test tests/SpeakerPipeline.Agents.Scoring.Tests/SpeakerPipeline.Agents.Scoring.Tests.csproj --configuration Release --no-build --verbosity normal
+ 
+      - name: Run evals (informational, non-blocking)
+        run: dotnet test tests/SpeakerPipeline.Agents.Scoring.Evals/SpeakerPipeline.Agents.Scoring.Evals.csproj --configuration Release --no-build --verbosity normal
+        continue-on-error: true
+ 
+      - name: Publish
+        run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+ 
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+ 
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+ 
+      - name: Azure logout
+        if: always()
+        run: az logout
+        
