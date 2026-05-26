@@ -55,6 +55,9 @@ appsettings.Local.json
 **/secrets/
 .openclaw/
 
+# Azure Functions local config — example file is committed instead
+local.settings.json
+
 # Claude Code — user-local settings only; shared settings.json is committed
 .claude/settings.local.json
 

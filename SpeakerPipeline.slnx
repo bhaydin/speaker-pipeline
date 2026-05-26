@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SpeakerPipeline.Agents.Scoring/SpeakerPipeline.Agents.Scoring.csproj" />
+    <Project Path="src/SpeakerPipeline.Api/SpeakerPipeline.Api.csproj" />
+    <Project Path="src/SpeakerPipeline.Core/SpeakerPipeline.Core.csproj" />
+    <Project Path="src/SpeakerPipeline.Hosting.Functions/SpeakerPipeline.Hosting.Functions.csproj" />
+    <Project Path="src/SpeakerPipeline.Storage/SpeakerPipeline.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SpeakerPipeline.Agents.Scoring.Evals/SpeakerPipeline.Agents.Scoring.Evals.csproj" />
+    <Project Path="tests/SpeakerPipeline.Agents.Scoring.Tests/SpeakerPipeline.Agents.Scoring.Tests.csproj" />
+    <Project Path="tests/SpeakerPipeline.Api.Tests/SpeakerPipeline.Api.Tests.csproj" />
+    <Project Path="tests/SpeakerPipeline.Core.Tests/SpeakerPipeline.Core.Tests.csproj" />
+    <Project Path="tests/SpeakerPipeline.Storage.Tests/SpeakerPipeline.Storage.Tests.csproj" />
+  </Folder>
+</Solution>

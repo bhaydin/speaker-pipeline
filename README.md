@@ -37,7 +37,7 @@ flowchart LR
     Surface -. approvals .-> Score
 ```
 
-See [docs/architecture-overview.md](docs/architecture-overview.md) for the prose walkthrough and [docs/pipeline_table_storage_schema.md](docs/pipeline_table_storage_schema.md) for the persistence-layer ground truth.
+See [docs/architecture-overview.md](docs/architecture-overview.md) for the prose walkthrough and [docs/architecture-table-storage.md](docs/architecture-table-storage.md) for the persistence-layer ground truth.
 
 ## Tech stack
 
@@ -76,7 +76,7 @@ See [docs/architecture-overview.md](docs/architecture-overview.md) for the prose
 ## Documentation
 
 - [Architecture overview](docs/architecture-overview.md) — how the pieces fit
-- [Table Storage schema](docs/pipeline_table_storage_schema.md) — persistence ground truth
+- [Table Storage schema](docs/architecture-table-storage.md) — persistence ground truth
 - [Architecture Decision Records](docs/adr/) — why we picked what we picked
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)

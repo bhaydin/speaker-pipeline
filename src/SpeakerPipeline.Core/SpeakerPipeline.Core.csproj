@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared domain types, enums, repository interfaces, and API client contract.
+    By architectural rule, this project has ZERO project references.
+    Anything Core needs lives in the BCL or framework packages only.
+  -->
+
+</Project>

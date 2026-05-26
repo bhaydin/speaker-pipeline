@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "rubricVersion": "v1",
+  "cases": [
+    {
+      "id": "clear-submit-now-hometown-agentops",
+      "description": "Hometown event, AgentOps lane, no travel, CFP open. Clear SubmitNow.",
+      "event": {
+        "Slug": "milwaukee-agentops-summit-2027",
+        "Name": "Milwaukee AgentOps Summit 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": [],
+        "EventDateStart": "2027-06-15T00:00:00Z",
+        "CfpDeadline": "2027-03-01T23:59:00Z",
+        "Location": "Milwaukee, WI",
+        "Format": "InPerson",
+        "TravelBurden": "None",
+        "Notes": "First-year event explicitly seeking AgentOps speakers"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "agentops-real-world",
+      "rationaleKeywords": ["AgentOps", "travel"]
+    },
+    {
+      "id": "clear-skip-europe-short-notice",
+      "description": "Europe, short notice, off-theme. Should Skip and not resurface.",
+      "event": {
+        "Slug": "berlin-blockchain-summit-2026",
+        "Name": "Berlin Blockchain Summit 2026",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Low",
+        "FocusFit": [],
+        "EventDateStart": "2026-07-12T00:00:00Z",
+        "CfpDeadline": "2026-06-01T23:59:00Z",
+        "Location": "Berlin, Germany",
+        "Format": "InPerson",
+        "TravelBurden": "High",
+        "Notes": "Blockchain / web3 focus"
+      },
+      "expectedRecommendation": "Skip",
+      "rationaleKeywords": ["topic", "travel"]
+    },
+    {
+      "id": "edge-high-fit-bad-timing",
+      "description": "Strong AgentOps fit but two heavy talks already in flight in the surrounding 4 weeks. Should Monitor or Pass.",
+      "event": {
+        "Slug": "great-lakes-cloud-conf-2027",
+        "Name": "Great Lakes Cloud Conf 2027",
+        "EventType": "Conference",
+        "Category": "SubmitNow",
+        "Priority": "MediumHigh",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-03-25T00:00:00Z",
+        "CfpDeadline": "2027-01-10T23:59:00Z",
+        "Location": "Chicago, IL",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "Prep congestion: two large talks already scheduled in the surrounding 4 weeks"
+      },
+      "expectedRecommendation": "Monitor",
+      "expectedRecommendationAlternates": ["Pass"],
+      "rationaleKeywords": ["congestion"]
+    },
+    {
+      "id": "edge-low-fit-easy-win-virtual",
+      "description": "Virtual recorded talk, very low effort, lukewarm fit. Should SubmitNow at lower priority.",
+      "event": {
+        "Slug": "remote-dev-recording-series-2027",
+        "Name": "Remote Dev Recording Series 2027",
+        "EventType": "Virtual",
+        "Category": "Monitor",
+        "Priority": "Low",
+        "FocusFit": ["PracticalEnterpriseAI"],
+        "EventDateStart": "2027-04-01T00:00:00Z",
+        "CfpDeadline": "2027-02-20T23:59:00Z",
+        "Location": "Virtual",
+        "Format": "Virtual",
+        "TravelBurden": "None",
+        "Notes": "30-minute recorded session; can be reused from existing decks"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedRecommendationAlternates": ["Monitor"],
+      "rationaleKeywords": ["effort", "reusability"]
+    },
+    {
+      "id": "outreach-community-user-group",
+      "description": "Local user group, no formal CFP, organizers schedule speakers directly. Should be Outreach.",
+      "event": {
+        "Slug": "twin-cities-azure-ug-2027-03-15",
+        "Name": "Twin Cities Azure User Group — March 2027",
+        "EventType": "UserGroup",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-03-15T23:30:00Z",
+        "Location": "Minneapolis, MN",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "No public CFP; organizers schedule directly"
+      },
+      "expectedRecommendation": "Outreach",
+      "rationaleKeywords": ["outreach", "CFP"]
+    },
+    {
+      "id": "monitor-stale-cfp-data",
+      "description": "CFP status is unclear and listing hasn't been verified recently. Should Monitor pending revalidation.",
+      "event": {
+        "Slug": "driftless-ai-days-2027",
+        "Name": "Driftless AI Days 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["PracticalEnterpriseAI"],
+        "EventDateStart": "2027-09-15T00:00:00Z",
+        "Location": "La Crosse, WI",
+        "Format": "Hybrid",
+        "TravelBurden": "Low",
+        "Notes": "CFP not yet open; site lists late-2026 opening but no confirmation"
+      },
+      "expectedRecommendation": "Monitor",
+      "rationaleKeywords": ["timing", "revalidation"]
+    },
+    {
+      "id": "lane-agentops-conference",
+      "description": "Pure AgentOps conference fit, reasonable travel, clean CFP.",
+      "event": {
+        "Slug": "northwoods-tech-summit-2027",
+        "Name": "Northwoods Tech Summit 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-05-04T00:00:00Z",
+        "CfpDeadline": "2027-02-15T23:59:00Z",
+        "Location": "Minocqua, WI",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "AgentOps track confirmed for 2027"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "agentops-real-world",
+      "rationaleKeywords": ["AgentOps"]
+    },
+    {
+      "id": "lane-hybrid-agents-conference",
+      "description": "Hybrid Agents lane, clear Copilot Studio + pro-code overlap audience.",
+      "event": {
+        "Slug": "rust-belt-power-platform-2027",
+        "Name": "Rust Belt Power Platform Days 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["HybridAgents"],
+        "EventDateStart": "2027-08-10T00:00:00Z",
+        "CfpDeadline": "2027-05-15T23:59:00Z",
+        "Location": "Detroit, MI",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "Power Platform + Copilot Studio audience, growing pro-code track"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "hybrid-agents-sweet-spot",
+      "rationaleKeywords": ["Hybrid"]
+    },
+    {
+      "id": "lane-m365-governance-conference",
+      "description": "Microsoft 365 / Copilot governance audience. Clear M365Governance fit.",
+      "event": {
+        "Slug": "midwest-m365-governance-forum-2027",
+        "Name": "Midwest M365 Governance Forum 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["M365Governance"],
+        "EventDateStart": "2027-10-20T00:00:00Z",
+        "CfpDeadline": "2027-07-15T23:59:00Z",
+        "Location": "Chicago, IL",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "Audience leans M365 admins and governance leads"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "m365-request-to-retirement",
+      "rationaleKeywords": ["governance"]
+    },
+    {
+      "id": "lane-practical-enterprise-ai-codecamp",
+      "description": "CodeCamp with explicit AI governance / enterprise AI track. PracticalEnterpriseAI fit.",
+      "event": {
+        "Slug": "headwaters-codecamp-2027",
+        "Name": "Headwaters CodeCamp 2027",
+        "EventType": "CodeCamp",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["PracticalEnterpriseAI"],
+        "EventDateStart": "2027-04-17T00:00:00Z",
+        "CfpDeadline": "2027-01-31T23:59:00Z",
+        "Location": "Duluth, MN",
+        "Format": "InPerson",
+        "TravelBurden": "Medium",
+        "Notes": "Free community event with an AI governance track"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "foundry-for-enterprise",
+      "rationaleKeywords": ["enterprise"]
+    },
+    {
+      "id": "pass-off-topic-but-not-permanent",
+      "description": "Off-theme product conference; not a permanent skip but not relevant now.",
+      "event": {
+        "Slug": "regional-erp-summit-2027",
+        "Name": "Regional ERP Summit 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Low",
+        "FocusFit": [],
+        "EventDateStart": "2027-09-05T00:00:00Z",
+        "CfpDeadline": "2027-06-20T23:59:00Z",
+        "Location": "Indianapolis, IN",
+        "Format": "InPerson",
+        "TravelBurden": "Medium",
+        "Notes": "ERP + finance audience; no AI track this year"
+      },
+      "expectedRecommendation": "Pass",
+      "rationaleKeywords": ["topic"]
+    },
+    {
+      "id": "deadline-urgency-bump",
+      "description": "Strong AgentOps fit and the deadline is inside 14 days. Urgency should push to SubmitNow.",
+      "event": {
+        "Slug": "lakeshore-cloud-meetup-2026-08-15",
+        "Name": "Lakeshore Cloud Meetup — August 2026 — Late Submission Window",
+        "EventType": "UserGroup",
+        "Category": "Monitor",
+        "Priority": "MediumHigh",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2026-08-15T00:00:00Z",
+        "CfpDeadline": "2026-06-05T23:59:00Z",
+        "Location": "Sheboygan, WI",
+        "Format": "InPerson",
+        "TravelBurden": "None",
+        "Notes": "Late-window CFP closing in under two weeks"
+      },
+      "expectedRecommendation": "SubmitNow",
+      "rationaleKeywords": ["deadline", "AgentOps"]
+    }
+  ]
+}
