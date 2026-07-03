@@ -23,7 +23,7 @@ The architecture deliberately combines two agent platforms. **Microsoft Agent Fr
 ### API as the only data boundary
 
 - **All data access goes through `SpeakerPipeline.Api`.** REST + OpenAPI, URL-versioned starting at `/v1`.
-- **`SpeakerPipeline.Storage` is internal to the API.** Agents, the Functions host, OpenClaw, and any external consumer **never** reference the Storage Account directly (use an API, MCP, etx abstraction layer). The project reference graph enforces this at the compiler level — don't add a back-channel reference, even temporarily.
+- **`SpeakerPipeline.Storage` is internal to the API.** Agents, the Functions host, OpenClaw, and any external consumer **never** reference the Storage Account directly (use an API, MCP, etc abstraction layer). The project reference graph enforces this at the compiler level — don't add a back-channel reference, even temporarily.
 - Auth in deployed environments: **Entra ID** (bearer token validation on the API) plus **Managed Identity** for service-to-service calls.
 - Hosting: **Azure Functions** for agents (timer + http triggers). **App Service or Container Apps** for the API — decision deferred to Phase 3.
 - Observability: OpenTelemetry from the first commit, never bolted on later.
