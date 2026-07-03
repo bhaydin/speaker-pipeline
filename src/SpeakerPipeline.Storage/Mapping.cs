@@ -13,6 +13,8 @@ internal static class Mapping
 {
     private const string EventsPartition = "events";
     private const string TalksPartition = "talks";
+    private const string TopicsPartition = "topic";
+    private const string BlackoutsPartition = "blackout";
 
     // ---- Events ----------------------------------------------------------
 
@@ -172,10 +174,127 @@ internal static class Mapping
         SchemaVersion = e.GetInt32("SchemaVersion") ?? 1,
     };
 
+    // ---- Topics ----------------------------------------------------------
+
+    public static TableEntity ToEntity(TopicRecord r)
+    {
+        if (!SlugSanitizer.IsValid(r.TopicId))
+        {
+            throw new ArgumentException($"Invalid TopicId '{r.TopicId}'.", nameof(r));
+        }
+
+        return new TableEntity(TopicsPartition, r.TopicId)
+        {
+            ["Title"] = r.Title,
+            ["OneLiner"] = r.OneLiner,
+            ["Stage"] = r.Stage.ToString(),
+            ["Source"] = r.Source.ToString(),
+            ["Lane"] = r.Lane?.ToString(),
+            ["EffortClass"] = r.EffortClass?.ToString(),
+            ["Notes"] = r.Notes,
+            ["RelatedContentUrls"] = string.Join('\n', r.RelatedContentUrls),
+            ["CreatedUtc"] = r.CreatedUtc?.UtcDateTime,
+            ["UpdatedUtc"] = r.UpdatedUtc?.UtcDateTime,
+            ["SchemaVersion"] = r.SchemaVersion,
+        };
+    }
+
+    public static TopicRecord ToTopicRecord(TableEntity e) => new()
+    {
+        TopicId = e.RowKey,
+        Title = e.GetString("Title") ?? string.Empty,
+        OneLiner = e.GetString("OneLiner"),
+        Stage = ParseEnum<TopicStage>(e.GetString("Stage")) ?? TopicStage.Idea,
+        Source = ParseEnum<TopicSource>(e.GetString("Source")) ?? TopicSource.Manual,
+        Lane = ParseEnum<Lane>(e.GetString("Lane")),
+        EffortClass = ParseEnum<EffortClass>(e.GetString("EffortClass")),
+        Notes = e.GetString("Notes"),
+        RelatedContentUrls = ParseStringList(e.GetString("RelatedContentUrls")),
+        CreatedUtc = e.GetDateTimeOffset("CreatedUtc"),
+        UpdatedUtc = e.GetDateTimeOffset("UpdatedUtc"),
+        SchemaVersion = e.GetInt32("SchemaVersion") ?? 1,
+    };
+
+    // ---- Blackouts -------------------------------------------------------
+
+    public static TableEntity ToEntity(BlackoutRecord r)
+    {
+        if (!SlugSanitizer.IsValid(r.BlackoutId))
+        {
+            throw new ArgumentException($"Invalid BlackoutId '{r.BlackoutId}'.", nameof(r));
+        }
+
+        return new TableEntity(BlackoutsPartition, r.BlackoutId)
+        {
+            ["StartDate"] = r.StartDate.UtcDateTime,
+            ["EndDate"] = r.EndDate.UtcDateTime,
+            ["Reason"] = r.Reason,
+            ["Hardness"] = r.Hardness.ToString(),
+            ["Source"] = r.Source,
+            ["CreatedUtc"] = r.CreatedUtc?.UtcDateTime,
+            ["UpdatedUtc"] = r.UpdatedUtc?.UtcDateTime,
+            ["SchemaVersion"] = r.SchemaVersion,
+        };
+    }
+
+    public static BlackoutRecord ToBlackoutRecord(TableEntity e) => new()
+    {
+        BlackoutId = e.RowKey,
+        StartDate = e.GetDateTimeOffset("StartDate") ?? DateTimeOffset.MinValue,
+        EndDate = e.GetDateTimeOffset("EndDate") ?? DateTimeOffset.MinValue,
+        Reason = e.GetString("Reason") ?? string.Empty,
+        Hardness = ParseEnum<BlackoutHardness>(e.GetString("Hardness")) ?? BlackoutHardness.Hard,
+        Source = e.GetString("Source"),
+        CreatedUtc = e.GetDateTimeOffset("CreatedUtc"),
+        UpdatedUtc = e.GetDateTimeOffset("UpdatedUtc"),
+        SchemaVersion = e.GetInt32("SchemaVersion") ?? 1,
+    };
+
+    // ---- NotificationLog -------------------------------------------------
+
+    public static TableEntity ToEntity(NotificationLogRecord r)
+    {
+        if (!SlugSanitizer.IsValid(r.Period))
+        {
+            throw new ArgumentException($"Invalid Period '{r.Period}'.", nameof(r));
+        }
+
+        if (!SlugSanitizer.IsValid(r.NotificationId))
+        {
+            throw new ArgumentException($"Invalid NotificationId '{r.NotificationId}'.", nameof(r));
+        }
+
+        return new TableEntity(r.Period, r.NotificationId)
+        {
+            ["Channel"] = r.Channel.ToString(),
+            ["Urgency"] = r.Urgency.ToString(),
+            ["SentUtc"] = r.SentUtc.UtcDateTime,
+            ["DedupeKey"] = r.DedupeKey,
+            ["EntityRef"] = r.EntityRef,
+            ["Summary"] = r.Summary,
+            ["SchemaVersion"] = r.SchemaVersion,
+        };
+    }
+
+    public static NotificationLogRecord ToNotificationLogRecord(TableEntity e) => new()
+    {
+        Period = e.PartitionKey,
+        NotificationId = e.RowKey,
+        Channel = ParseEnum<NotificationChannel>(e.GetString("Channel")) ?? NotificationChannel.Email,
+        Urgency = ParseEnum<NotificationUrgency>(e.GetString("Urgency")) ?? NotificationUrgency.Digest,
+        SentUtc = e.GetDateTimeOffset("SentUtc") ?? DateTimeOffset.MinValue,
+        DedupeKey = e.GetString("DedupeKey") ?? string.Empty,
+        EntityRef = e.GetString("EntityRef"),
+        Summary = e.GetString("Summary"),
+        SchemaVersion = e.GetInt32("SchemaVersion") ?? 1,
+    };
+
     // ---- Helpers ---------------------------------------------------------
 
     public static string EventsPartitionKey => EventsPartition;
     public static string TalksPartitionKey => TalksPartition;
+    public static string TopicsPartitionKey => TopicsPartition;
+    public static string BlackoutsPartitionKey => BlackoutsPartition;
 
     private static T? ParseEnum<T>(string? value) where T : struct, Enum
         => string.IsNullOrEmpty(value)
@@ -194,6 +313,16 @@ internal static class Mapping
             .Select(part => ParseEnum<Lane>(part))
             .Where(l => l.HasValue)
             .Select(l => l!.Value)];
+    }
+
+    private static IReadOnlyList<string> ParseStringList(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        return [.. value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }
 
     public static string FormatOdataDateTime(DateTimeOffset dt)

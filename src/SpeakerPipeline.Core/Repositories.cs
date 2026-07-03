@@ -30,3 +30,30 @@ public interface ITalkRepository
     Task<IReadOnlyList<TalkRecord>> GetByLaneAsync(Lane lane, CancellationToken ct = default);
     Task UpsertAsync(TalkRecord record, CancellationToken ct = default);
 }
+
+public interface ITopicRepository
+{
+    Task<TopicRecord?> GetAsync(string topicId, CancellationToken ct = default);
+    Task<IReadOnlyList<TopicRecord>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<TopicRecord>> GetByStageAsync(TopicStage stage, CancellationToken ct = default);
+    Task UpsertAsync(TopicRecord record, CancellationToken ct = default);
+}
+
+public interface IBlackoutRepository
+{
+    Task<BlackoutRecord?> GetAsync(string blackoutId, CancellationToken ct = default);
+    Task<IReadOnlyList<BlackoutRecord>> GetAllAsync(CancellationToken ct = default);
+    Task UpsertAsync(BlackoutRecord record, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Persistence for the notification dedupe ledger. Defined in Milestone 1; its
+/// first writer (the Notifier) and API endpoints arrive in Milestone 2.
+/// See <see cref="NotificationLogRecord"/> and ADR 0001.
+/// </summary>
+public interface INotificationLogRepository
+{
+    Task<NotificationLogRecord?> GetAsync(string period, string notificationId, CancellationToken ct = default);
+    Task<IReadOnlyList<NotificationLogRecord>> GetForPeriodAsync(string period, CancellationToken ct = default);
+    Task UpsertAsync(NotificationLogRecord record, CancellationToken ct = default);
+}

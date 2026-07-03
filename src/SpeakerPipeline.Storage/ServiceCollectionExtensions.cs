@@ -22,6 +22,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TableServiceClient>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+
+            // Local-dev / Azurite path. Supplied at runtime only; production
+            // never sets a connection string — it uses managed identity below.
+            if (!string.IsNullOrWhiteSpace(opts.ConnectionString))
+            {
+                return new TableServiceClient(opts.ConnectionString);
+            }
+
             if (string.IsNullOrWhiteSpace(opts.TableEndpoint))
             {
                 throw new InvalidOperationException(
@@ -54,6 +62,30 @@ public static class ServiceCollectionExtensions
             var service = sp.GetRequiredService<TableServiceClient>();
             var client = service.GetTableClient(opts.TalksTableName);
             return new TalkRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TalkRepository>>());
+        });
+
+        services.AddSingleton<ITopicRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.TopicsTableName);
+            return new TopicRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TopicRepository>>());
+        });
+
+        services.AddSingleton<IBlackoutRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.BlackoutsTableName);
+            return new BlackoutRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<BlackoutRepository>>());
+        });
+
+        services.AddSingleton<INotificationLogRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.NotificationLogTableName);
+            return new NotificationLogRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NotificationLogRepository>>());
         });
 
         return services;

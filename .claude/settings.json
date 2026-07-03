@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git stash *)",
+      "mcp__claude_ai_Microsoft_Learn__microsoft_code_sample_search",
+      "mcp__claude_ai_Microsoft_Learn__microsoft_docs_search",
+      "Bash(dotnet script *)",
+      "Bash(curl -s https://api.nuget.org/v3-flatcontainer/microsoft.openapi/index.json)",
+      "Bash(dotnet list *)",
+      "Bash(curl -s https://api.nuget.org/v3/registration5-gz-semver2/microsoft.aspnetcore.openapi/10.0.8.json)",
+      "Bash(python -c \"import sys,json,gzip; print\\('n/a'\\)\")",
+      "Bash(curl -s https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.openapi/10.0.8/microsoft.aspnetcore.openapi.nuspec)",
+      "Bash(curl -s \"https://api.github.com/advisories/GHSA-v5pm-xwqc-g5wc\")",
+      "Bash(npm install *)",
+      "Bash(azurite --version)",
+      "Bash(mkdir -p \"/c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/scratchpad/azurite\")",
+      "Bash(azurite --silent --location \"/c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/scratchpad/azurite\" --debug \"/c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/scratchpad/azurite/debug.log\")",
+      "Bash(curl -s -o /dev/null -w \"table endpoint HTTP %{http_code}\\\\n\" \"http://127.0.0.1:10002/devstoreaccount1/Tables\")",
+      "Bash(export ASPNETCORE_ENVIRONMENT=Development)",
+      "Bash(export ASPNETCORE_URLS=http://localhost:5080)",
+      "Bash(export Storage__ConnectionString='<redacted>')",
+      "Bash(dotnet run *)",
+      "Bash(curl -s --retry 15 --retry-all-errors --retry-delay 1 -o /dev/null -w \"health HTTP %{http_code}\\\\n\" http://localhost:5080/health)",
+      "Bash(grep -iE \"exception|error|fail|RequestFailed|Azurite|Table|Merge|400|InvalidInput\" \"/c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/tasks/bn3ggnnod.output\" | tail -25)",
+      "Read(//c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/tasks/**)",
+      "Bash(python -)",
+      "Bash(curl -s --retry 20 --retry-all-errors --retry-delay 1 -o /dev/null -w \"health HTTP %{http_code}\\\\n\" http://localhost:5080/health)",
+      "Bash(git commit *)",
+      "Bash(git reset *)",
+      "Bash(git restore *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\brian\\AppData\\Local\\Temp\\claude\\c--Work-Repos-speaker-pipeline\\5019107f-637f-4ef2-af6c-1837ecb81780\\scratchpad"
+    ]
+  }
+}

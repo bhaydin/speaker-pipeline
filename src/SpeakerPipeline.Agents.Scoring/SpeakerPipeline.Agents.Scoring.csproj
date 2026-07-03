@@ -2,9 +2,10 @@
 
   <!--
     Scoring agent.
-    References Core only — talks to the API over HTTP via ISpeakerPipelineApiClient.
-    Do NOT add a reference to SpeakerPipeline.Storage. The whole point of the
-    Phase 2 architecture is that agents go through the API.
+    References Core only — talks to the API over HTTP via ISpeakerPipelineApiClient
+    (the concrete client lives in SpeakerPipeline.Client). Do NOT add a reference
+    to SpeakerPipeline.Storage. The whole point of the Phase 2 architecture is
+    that agents go through the API.
   -->
 
   <ItemGroup>
@@ -19,11 +20,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
-    <PackageReference Include="Azure.Identity" />
   </ItemGroup>
 
 </Project>

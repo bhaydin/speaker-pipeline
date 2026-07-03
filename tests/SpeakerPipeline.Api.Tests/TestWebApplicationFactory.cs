@@ -19,6 +19,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     public InMemoryEventRepository Events { get; } = new();
     public InMemorySubmissionRepository Submissions { get; } = new();
     public InMemoryTalkRepository Talks { get; } = new();
+    public InMemoryTopicRepository Topics { get; } = new();
+    public InMemoryBlackoutRepository Blackouts { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -40,10 +42,14 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IEventRepository>();
             services.RemoveAll<ISubmissionRepository>();
             services.RemoveAll<ITalkRepository>();
+            services.RemoveAll<ITopicRepository>();
+            services.RemoveAll<IBlackoutRepository>();
 
             services.AddSingleton<IEventRepository>(Events);
             services.AddSingleton<ISubmissionRepository>(Submissions);
             services.AddSingleton<ITalkRepository>(Talks);
+            services.AddSingleton<ITopicRepository>(Topics);
+            services.AddSingleton<IBlackoutRepository>(Blackouts);
         });
     }
 }
@@ -121,6 +127,43 @@ public sealed class InMemoryTalkRepository : ITalkRepository
     public Task UpsertAsync(TalkRecord record, CancellationToken ct = default)
     {
         _items[record.Slug] = record;
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class InMemoryTopicRepository : ITopicRepository
+{
+    private readonly ConcurrentDictionary<string, TopicRecord> _items = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task<TopicRecord?> GetAsync(string topicId, CancellationToken ct = default)
+        => Task.FromResult(_items.TryGetValue(topicId, out var r) ? r : null);
+
+    public Task<IReadOnlyList<TopicRecord>> GetAllAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TopicRecord>>([.. _items.Values]);
+
+    public Task<IReadOnlyList<TopicRecord>> GetByStageAsync(TopicStage stage, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TopicRecord>>([.. _items.Values.Where(t => t.Stage == stage)]);
+
+    public Task UpsertAsync(TopicRecord record, CancellationToken ct = default)
+    {
+        _items[record.TopicId] = record;
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class InMemoryBlackoutRepository : IBlackoutRepository
+{
+    private readonly ConcurrentDictionary<string, BlackoutRecord> _items = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task<BlackoutRecord?> GetAsync(string blackoutId, CancellationToken ct = default)
+        => Task.FromResult(_items.TryGetValue(blackoutId, out var r) ? r : null);
+
+    public Task<IReadOnlyList<BlackoutRecord>> GetAllAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<BlackoutRecord>>([.. _items.Values]);
+
+    public Task UpsertAsync(BlackoutRecord record, CancellationToken ct = default)
+    {
+        _items[record.BlackoutId] = record;
         return Task.CompletedTask;
     }
 }

@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    }
+  },
+  "extensions": {
+    "mcp": {
+      "serverName": "SpeakerPipeline",
+      "serverVersion": "1.0.0",
+      "instructions": "Tools for Brian Haydin's speaking pipeline: inject topic ideas, read the pipeline and upcoming CFP deadlines, apply pipeline actions (skip/monitor/intend/confirmed), and add blackout dates."
+    }
+  }
+}

@@ -4,12 +4,13 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using SpeakerPipeline.Core;
 
-namespace SpeakerPipeline.Agents.Scoring.ApiClient;
+namespace SpeakerPipeline.Client;
 
 /// <summary>
 /// HTTP-backed implementation of <see cref="ISpeakerPipelineApiClient"/>.
-/// Used by the scoring agent and any other consumer that needs to read
-/// pipeline data. Does NOT reference SpeakerPipeline.Storage.
+/// Shared by every API consumer — the scoring agent, the MCP server, and any
+/// future agent. Does NOT reference SpeakerPipeline.Storage; all access is
+/// through the API. See ADR 0001.
 /// </summary>
 public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPipelineApiClient> logger) : ISpeakerPipelineApiClient
 {
@@ -69,6 +70,13 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
     public Task<TalkRecord?> GetTalkAsync(string slug, CancellationToken ct = default)
         => GetJsonAsync<TalkRecord?>($"v1/talks/{Uri.EscapeDataString(slug)}", ct, allow404: true);
 
+    public async Task<TalkRecord> UpsertTalkAsync(TalkRecord record, CancellationToken ct = default)
+    {
+        using var resp = await http.PutAsJsonAsync($"v1/talks/{Uri.EscapeDataString(record.Slug)}", record, JsonOpts, ct);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<TalkRecord>(JsonOpts, ct))!;
+    }
+
     public async Task<IReadOnlyList<EventRecord>> GetScoringCandidatesAsync(CancellationToken ct = default)
         => await GetJsonAsync<IReadOnlyList<EventRecord>>("v1/scoring/candidates", ct) ?? [];
 
@@ -82,6 +90,39 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
                 decision.EventSlug, (int)resp.StatusCode, body);
             resp.EnsureSuccessStatusCode();
         }
+    }
+
+    public async Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default)
+    {
+        var url = stage is null ? "v1/topics" : $"v1/topics?stage={stage}";
+        return await GetJsonAsync<IReadOnlyList<TopicRecord>>(url, ct) ?? [];
+    }
+
+    public Task<TopicRecord?> GetTopicAsync(string topicId, CancellationToken ct = default)
+        => GetJsonAsync<TopicRecord?>($"v1/topics/{Uri.EscapeDataString(topicId)}", ct, allow404: true);
+
+    public async Task<TopicRecord> UpsertTopicAsync(TopicRecord record, CancellationToken ct = default)
+    {
+        using var resp = await http.PutAsJsonAsync($"v1/topics/{Uri.EscapeDataString(record.TopicId)}", record, JsonOpts, ct);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<TopicRecord>(JsonOpts, ct))!;
+    }
+
+    public async Task<IReadOnlyList<BlackoutRecord>> GetBlackoutsAsync(CancellationToken ct = default)
+        => await GetJsonAsync<IReadOnlyList<BlackoutRecord>>("v1/blackouts", ct) ?? [];
+
+    public async Task<BlackoutRecord> UpsertBlackoutAsync(BlackoutRecord record, CancellationToken ct = default)
+    {
+        using var resp = await http.PutAsJsonAsync($"v1/blackouts/{Uri.EscapeDataString(record.BlackoutId)}", record, JsonOpts, ct);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<BlackoutRecord>(JsonOpts, ct))!;
+    }
+
+    public async Task<EventRecord> ApplyPipelineActionAsync(string slug, PipelineActionRequest request, CancellationToken ct = default)
+    {
+        using var resp = await http.PostAsJsonAsync($"v1/pipeline/{Uri.EscapeDataString(slug)}/actions", request, JsonOpts, ct);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<EventRecord>(JsonOpts, ct))!;
     }
 
     private async Task<T?> GetJsonAsync<T>(string path, CancellationToken ct, bool allow404 = false)
