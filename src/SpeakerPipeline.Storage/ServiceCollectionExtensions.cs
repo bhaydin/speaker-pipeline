@@ -22,6 +22,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TableServiceClient>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+
+            // Local-dev / Azurite path. Supplied at runtime only; production
+            // never sets a connection string — it uses managed identity below.
+            if (!string.IsNullOrWhiteSpace(opts.ConnectionString))
+            {
+                return new TableServiceClient(opts.ConnectionString);
+            }
+
             if (string.IsNullOrWhiteSpace(opts.TableEndpoint))
             {
                 throw new InvalidOperationException(
