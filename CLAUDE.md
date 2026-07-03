@@ -71,8 +71,12 @@ The eval suite is built to surface drift: a previously-passing case that now fai
 
 ## Folder map
 
-- [src/](src/) — .NET 10 solution (`SpeakerPipeline.sln`) with `Core`, `Storage`, `Api`, `Agents.Scoring`, `Hosting.Functions`.
+- [src/](src/) — .NET 10 solution (`SpeakerPipeline.slnx`) with `Core`, `Storage`, `Api`, `Client`, `Agents.Scoring`, `Hosting.Functions`, `Mcp`.
+  - `Client` — the HTTP `ISpeakerPipelineApiClient` shared by every API consumer (scoring agent, MCP server). Never references `Storage`.
+  - `Mcp` — remote MCP server on Azure Functions (Flex Consumption); thin tools over the API. See [ADR 0001](docs/adr/0001-consumers-reach-data-through-the-api.md).
 - [tests/](tests/) — xUnit test projects mirroring `src/`, plus the `Agents.Scoring.Evals` eval suite.
+- [tools/](tools/) — one-off console utilities (e.g. `SpeakerPipeline.Migrate`, the sample/tracker → API seeder).
+- [infra/](infra/) — Bicep for the Azure footprint (RG, storage, Key Vault, App Insights, managed identity, Functions).
 - [docs/](docs/) — architecture, schema, ADRs.
 - [scripts/](scripts/) — provisioning and seeding helpers.
 - [samples/](samples/) — sanitized JSON that validates against the schema and `SpeakerPipeline.Core` models.
