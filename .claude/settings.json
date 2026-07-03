@@ -18,7 +18,7 @@
       "Bash(curl -s -o /dev/null -w \"table endpoint HTTP %{http_code}\\\\n\" \"http://127.0.0.1:10002/devstoreaccount1/Tables\")",
       "Bash(export ASPNETCORE_ENVIRONMENT=Development)",
       "Bash(export ASPNETCORE_URLS=http://localhost:5080)",
-      "Bash(export Storage__ConnectionString='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;')",
+      "Bash(export Storage__ConnectionString='<redacted>')",
       "Bash(dotnet run *)",
       "Bash(curl -s --retry 15 --retry-all-errors --retry-delay 1 -o /dev/null -w \"health HTTP %{http_code}\\\\n\" http://localhost:5080/health)",
       "Bash(grep -iE \"exception|error|fail|RequestFailed|Azurite|Table|Merge|400|InvalidInput\" \"/c/Users/brian/AppData/Local/Temp/claude/c--Work-Repos-speaker-pipeline/5019107f-637f-4ef2-af6c-1837ecb81780/tasks/bn3ggnnod.output\" | tail -25)",
