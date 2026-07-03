@@ -1,41 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Azure Functions isolated-worker host for the scoring agent.
-    References Core and Agents.Scoring only. The agent talks to the API
-    over HTTP — this host wires up DI, logging, and triggers, nothing more.
+    Remote MCP server on Azure Functions (isolated worker, Flex Consumption).
+    Exposes the six v1 pipeline tools to any MCP client (Claude, Copilot).
+    Every tool is a thin adapter over ISpeakerPipelineApiClient — this project
+    references Core + Client and NEVER SpeakerPipeline.Storage. See ADR 0001.
   -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
-    <RootNamespace>SpeakerPipeline.Hosting.Functions</RootNamespace>
+    <RootNamespace>SpeakerPipeline.Mcp</RootNamespace>
     <_FunctionsSkipCleanOutput>true</_FunctionsSkipCleanOutput>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Client\SpeakerPipeline.Client.csproj" />
-    <ProjectReference Include="..\SpeakerPipeline.Agents.Scoring\SpeakerPipeline.Agents.Scoring.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Mcp" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Azure.Identity" />
-    <PackageReference Include="OpenTelemetry" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="OpenTelemetry.Exporter.Console" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
   </ItemGroup>
 
   <ItemGroup>

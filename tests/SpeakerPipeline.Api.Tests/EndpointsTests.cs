@@ -115,4 +115,119 @@ public class EndpointsTests : IClassFixture<EndpointsTests.Fixture>
         Assert.Equal(Priority.High, updated.Priority);
         Assert.Equal("scoring-agent-test", updated.DecidedByAgent);
     }
+
+    [Fact]
+    public async Task Post_topic_stamps_timestamps_and_round_trips()
+    {
+        var topic = new TopicRecord
+        {
+            TopicId = "model-access-supply-chain-risk",
+            Title = "Model-access supply-chain risk",
+            OneLiner = "Who can reach your model, and what they can do once they're there.",
+            Stage = TopicStage.Idea,
+            Source = TopicSource.Claude,
+        };
+
+        var postResp = await _fx.Client.PostAsJsonAsync("/v1/topics", topic);
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+        var created = await postResp.Content.ReadFromJsonAsync<TopicRecord>();
+        Assert.NotNull(created);
+        Assert.NotNull(created!.CreatedUtc);
+        Assert.NotNull(created.UpdatedUtc);
+
+        var getResp = await _fx.Client.GetAsync($"/v1/topics/{topic.TopicId}");
+        var back = await getResp.Content.ReadFromJsonAsync<TopicRecord>();
+        Assert.Equal(topic.Title, back!.Title);
+        Assert.Equal(TopicSource.Claude, back.Source);
+    }
+
+    [Fact]
+    public async Task Get_topics_filters_by_stage()
+    {
+        await _fx.Factory.Topics.UpsertAsync(new TopicRecord
+        {
+            TopicId = "validated-idea", Title = "Validated", Stage = TopicStage.Validated, Source = TopicSource.Manual,
+        });
+        await _fx.Factory.Topics.UpsertAsync(new TopicRecord
+        {
+            TopicId = "raw-idea", Title = "Raw", Stage = TopicStage.Idea, Source = TopicSource.Manual,
+        });
+
+        var resp = await _fx.Client.GetAsync("/v1/topics?stage=Validated");
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var list = await resp.Content.ReadFromJsonAsync<List<TopicRecord>>();
+        Assert.Contains(list!, t => t.TopicId == "validated-idea");
+        Assert.DoesNotContain(list!, t => t.TopicId == "raw-idea");
+    }
+
+    [Fact]
+    public async Task Post_blackout_with_end_before_start_returns_400()
+    {
+        var bad = new BlackoutRecord
+        {
+            BlackoutId = "inverted-range",
+            StartDate = new DateTimeOffset(2027, 7, 20, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2027, 7, 10, 0, 0, 0, TimeSpan.Zero),
+            Reason = "typo",
+            Hardness = BlackoutHardness.Hard,
+        };
+
+        var resp = await _fx.Client.PostAsJsonAsync("/v1/blackouts", bad);
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_blackout_round_trips()
+    {
+        var blackout = new BlackoutRecord
+        {
+            BlackoutId = "family-2027-07",
+            StartDate = new DateTimeOffset(2027, 7, 10, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2027, 7, 20, 0, 0, 0, TimeSpan.Zero),
+            Reason = "Family salmon trip",
+            Hardness = BlackoutHardness.Hard,
+        };
+
+        var postResp = await _fx.Client.PostAsJsonAsync("/v1/blackouts", blackout);
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+
+        var getResp = await _fx.Client.GetAsync("/v1/blackouts");
+        var list = await getResp.Content.ReadFromJsonAsync<List<BlackoutRecord>>();
+        Assert.Contains(list!, b => b.BlackoutId == "family-2027-07" && b.Hardness == BlackoutHardness.Hard);
+    }
+
+    [Theory]
+    [InlineData(PipelineAction.Skip, EventCategory.Skip, true)]
+    [InlineData(PipelineAction.Monitor, EventCategory.Monitor, false)]
+    [InlineData(PipelineAction.Intend, EventCategory.SubmitNow, false)]
+    [InlineData(PipelineAction.Confirmed, EventCategory.Submitted, false)]
+    public async Task Pipeline_action_moves_category(PipelineAction action, EventCategory expected, bool expectDoNotResurface)
+    {
+        var slug = $"pipeline-{action}".ToLowerInvariant();
+        await _fx.Factory.Events.UpsertAsync(new EventRecord
+        {
+            Slug = slug,
+            Name = "Pipeline Test",
+            EventType = EventType.Conference,
+            Category = EventCategory.Monitor,
+            Priority = Priority.Medium,
+        });
+
+        var resp = await _fx.Client.PostAsJsonAsync($"/v1/pipeline/{slug}/actions",
+            new PipelineActionRequest { Action = action, Note = "via test" });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var updated = await _fx.Factory.Events.GetAsync(slug);
+        Assert.Equal(expected, updated!.Category);
+        Assert.Equal(expectDoNotResurface, updated.DoNotResurface);
+        Assert.Equal("via test", updated.StatusDetail);
+    }
+
+    [Fact]
+    public async Task Pipeline_action_on_missing_event_returns_404()
+    {
+        var resp = await _fx.Client.PostAsJsonAsync("/v1/pipeline/does-not-exist/actions",
+            new PipelineActionRequest { Action = PipelineAction.Monitor });
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+    }
 }

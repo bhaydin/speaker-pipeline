@@ -67,4 +67,4 @@ Links to related ADRs, docs, issues, or external material.
 
 ## Index
 
-*(No ADRs yet. The first one will likely be `0001-use-azure-table-storage.md` once Phase 2 begins.)*
+- [0001. Consumers reach data through the API, not the Storage account](0001-consumers-reach-data-through-the-api.md) — Accepted, 2026-07-03.

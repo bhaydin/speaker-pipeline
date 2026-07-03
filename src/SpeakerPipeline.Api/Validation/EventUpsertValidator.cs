@@ -37,6 +37,30 @@ public sealed class TalkUpsertValidator : AbstractValidator<TalkRecord>
     }
 }
 
+public sealed class TopicUpsertValidator : AbstractValidator<TopicRecord>
+{
+    public TopicUpsertValidator()
+    {
+        RuleFor(t => t.TopicId).NotEmpty().Must(SlugSanitizer.IsValid)
+            .WithMessage("TopicId must not contain '/', '\\', '#', '?', or control characters.");
+        RuleFor(t => t.Title).NotEmpty();
+        RuleFor(t => t.SchemaVersion).GreaterThan(0);
+    }
+}
+
+public sealed class BlackoutUpsertValidator : AbstractValidator<BlackoutRecord>
+{
+    public BlackoutUpsertValidator()
+    {
+        RuleFor(b => b.BlackoutId).NotEmpty().Must(SlugSanitizer.IsValid)
+            .WithMessage("BlackoutId must not contain '/', '\\', '#', '?', or control characters.");
+        RuleFor(b => b.Reason).NotEmpty();
+        RuleFor(b => b.EndDate).GreaterThanOrEqualTo(b => b.StartDate)
+            .WithMessage("EndDate must be on or after StartDate.");
+        RuleFor(b => b.SchemaVersion).GreaterThan(0);
+    }
+}
+
 public sealed class ScoringDecisionValidator : AbstractValidator<ScoringDecision>
 {
     public ScoringDecisionValidator()

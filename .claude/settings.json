@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git stash *)",
+      "mcp__claude_ai_Microsoft_Learn__microsoft_code_sample_search",
+      "mcp__claude_ai_Microsoft_Learn__microsoft_docs_search",
+      "Bash(dotnet script *)"
+    ]
+  }
+}

@@ -113,4 +113,109 @@ public class MappingTests
 
         Assert.Throws<ArgumentException>(() => Mapping.ToEntity(bad));
     }
+
+    [Fact]
+    public void TopicRecord_round_trips()
+    {
+        var original = new TopicRecord
+        {
+            TopicId = "model-access-supply-chain-risk",
+            Title = "Model-access supply-chain risk",
+            OneLiner = "Who can reach your model, and what they can do once they're there.",
+            Stage = TopicStage.Validated,
+            Source = TopicSource.Claude,
+            Lane = Lane.AgentOps,
+            EffortClass = EffortClass.NewTopic,
+            Notes = "Surfaced mid-conversation.",
+            RelatedContentUrls = ["https://example.org/a", "https://example.org/b"],
+            CreatedUtc = new DateTimeOffset(2026, 7, 3, 12, 0, 0, TimeSpan.Zero),
+            UpdatedUtc = new DateTimeOffset(2026, 7, 3, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        var entity = Mapping.ToEntity(original);
+        var roundTripped = Mapping.ToTopicRecord(entity);
+
+        Assert.Equal(original.TopicId, roundTripped.TopicId);
+        Assert.Equal(original.Title, roundTripped.Title);
+        Assert.Equal(original.OneLiner, roundTripped.OneLiner);
+        Assert.Equal(original.Stage, roundTripped.Stage);
+        Assert.Equal(original.Source, roundTripped.Source);
+        Assert.Equal(original.Lane, roundTripped.Lane);
+        Assert.Equal(original.EffortClass, roundTripped.EffortClass);
+        Assert.Equal(original.RelatedContentUrls, roundTripped.RelatedContentUrls);
+        Assert.Equal(original.CreatedUtc, roundTripped.CreatedUtc);
+    }
+
+    [Fact]
+    public void TopicRecord_round_trips_with_minimal_fields()
+    {
+        var original = new TopicRecord
+        {
+            TopicId = "bare-idea",
+            Title = "A bare idea",
+            Stage = TopicStage.Idea,
+            Source = TopicSource.Manual,
+        };
+
+        var entity = Mapping.ToEntity(original);
+        var roundTripped = Mapping.ToTopicRecord(entity);
+
+        Assert.Null(roundTripped.Lane);
+        Assert.Null(roundTripped.EffortClass);
+        Assert.Empty(roundTripped.RelatedContentUrls);
+        Assert.Equal(TopicStage.Idea, roundTripped.Stage);
+    }
+
+    [Fact]
+    public void BlackoutRecord_round_trips()
+    {
+        var original = new BlackoutRecord
+        {
+            BlackoutId = "family-2027-07",
+            StartDate = new DateTimeOffset(2027, 7, 10, 0, 0, 0, TimeSpan.Zero),
+            EndDate = new DateTimeOffset(2027, 7, 20, 0, 0, 0, TimeSpan.Zero),
+            Reason = "Family salmon trip",
+            Hardness = BlackoutHardness.Hard,
+            Source = "manual",
+            CreatedUtc = new DateTimeOffset(2026, 7, 3, 12, 0, 0, TimeSpan.Zero),
+            UpdatedUtc = new DateTimeOffset(2026, 7, 3, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        var entity = Mapping.ToEntity(original);
+        var roundTripped = Mapping.ToBlackoutRecord(entity);
+
+        Assert.Equal(original.BlackoutId, roundTripped.BlackoutId);
+        Assert.Equal(original.StartDate, roundTripped.StartDate);
+        Assert.Equal(original.EndDate, roundTripped.EndDate);
+        Assert.Equal(original.Reason, roundTripped.Reason);
+        Assert.Equal(original.Hardness, roundTripped.Hardness);
+        Assert.Equal(original.Source, roundTripped.Source);
+    }
+
+    [Fact]
+    public void NotificationLogRecord_round_trips()
+    {
+        var original = new NotificationLogRecord
+        {
+            Period = "2026-07",
+            NotificationId = "great-lakes-cloud-conf-2027-cfp-closing",
+            Channel = NotificationChannel.Telegram,
+            Urgency = NotificationUrgency.Urgent,
+            SentUtc = new DateTimeOffset(2026, 7, 3, 8, 30, 0, TimeSpan.Zero),
+            DedupeKey = "great-lakes-cloud-conf-2027|cfp-closing",
+            EntityRef = "great-lakes-cloud-conf-2027",
+            Summary = "CFP closes in 5 days",
+        };
+
+        var entity = Mapping.ToEntity(original);
+        var roundTripped = Mapping.ToNotificationLogRecord(entity);
+
+        Assert.Equal(original.Period, roundTripped.Period);
+        Assert.Equal(original.NotificationId, roundTripped.NotificationId);
+        Assert.Equal(original.Channel, roundTripped.Channel);
+        Assert.Equal(original.Urgency, roundTripped.Urgency);
+        Assert.Equal(original.SentUtc, roundTripped.SentUtc);
+        Assert.Equal(original.DedupeKey, roundTripped.DedupeKey);
+        Assert.Equal(original.EntityRef, roundTripped.EntityRef);
+    }
 }

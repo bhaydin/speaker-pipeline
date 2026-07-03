@@ -56,6 +56,30 @@ public static class ServiceCollectionExtensions
             return new TalkRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TalkRepository>>());
         });
 
+        services.AddSingleton<ITopicRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.TopicsTableName);
+            return new TopicRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TopicRepository>>());
+        });
+
+        services.AddSingleton<IBlackoutRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.BlackoutsTableName);
+            return new BlackoutRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<BlackoutRepository>>());
+        });
+
+        services.AddSingleton<INotificationLogRepository>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            var service = sp.GetRequiredService<TableServiceClient>();
+            var client = service.GetTableClient(opts.NotificationLogTableName);
+            return new NotificationLogRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NotificationLogRepository>>());
+        });
+
         return services;
     }
 }

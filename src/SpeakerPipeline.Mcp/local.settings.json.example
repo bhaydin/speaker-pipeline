@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AZURE_FUNCTIONS_ENVIRONMENT": "Development",
+    "SpeakerPipelineApi__BaseUrl": "http://localhost:5xxx/",
+    "SpeakerPipelineApi__Scope": "<api-app-id-uri>/.default"
+  }
+}

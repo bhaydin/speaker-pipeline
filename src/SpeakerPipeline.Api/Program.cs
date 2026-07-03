@@ -34,6 +34,9 @@ app.MapEventsApi();
 app.MapSubmissionsApi();
 app.MapTalksApi();
 app.MapScoringApi();
+app.MapTopicsApi();
+app.MapBlackoutsApi();
+app.MapPipelineApi();
 
 app.Run();
 

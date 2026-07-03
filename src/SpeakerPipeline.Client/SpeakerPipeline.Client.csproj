@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared HTTP client for the pipeline API. Implements the Core contract
+    ISpeakerPipelineApiClient over HTTP so every consumer (scoring agent, MCP
+    server, future agents) reaches data through the API — never Storage.
+    See ADR 0001 and CLAUDE.md "API as the only data boundary".
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

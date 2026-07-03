@@ -16,4 +16,7 @@ public sealed class StorageOptions
     public string EventsTableName { get; set; } = "Events";
     public string SubmissionsTableName { get; set; } = "Submissions";
     public string TalksTableName { get; set; } = "Talks";
+    public string TopicsTableName { get; set; } = "Topics";
+    public string BlackoutsTableName { get; set; } = "Blackouts";
+    public string NotificationLogTableName { get; set; } = "NotificationLog";
 }

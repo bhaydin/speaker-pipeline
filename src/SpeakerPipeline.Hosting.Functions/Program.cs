@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SpeakerPipeline.Agents.Scoring;
+using SpeakerPipeline.Client;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
