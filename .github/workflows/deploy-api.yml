@@ -42,7 +42,7 @@ jobs:
         run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
  
       - name: Run unit tests
-        run: dotnet test tests/SpeakerPipeline.Api.Tests/SpeakerPipeline.Api.Tests.csproj --configuration Release --no-build --verbosity normal
+        run: dotnet test tests/SpeakerPipeline.Api.Tests/SpeakerPipeline.Api.Tests.csproj --configuration Release --verbosity normal
  
       - name: Publish
         run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
