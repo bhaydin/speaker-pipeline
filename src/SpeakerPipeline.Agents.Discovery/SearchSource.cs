@@ -9,9 +9,9 @@ namespace SpeakerPipeline.Agents.Discovery;
 /// page, and hand it to the same extract → reconcile pipeline the watchlist
 /// uses. Search titles/snippets are never trusted — only the re-fetched page is.
 ///
-/// RespectRobots is honored in spirit here (we fetch individual candidate pages
-/// with an identifying User-Agent rather than crawling); full robots.txt parsing
-/// is a noted follow-up.
+/// RespectRobots is not currently enforced via robots.txt parsing; this source
+/// performs single-page fetches with an identifying User-Agent and avoids crawling.
+/// Full robots.txt parsing is a noted follow-up.
 /// </summary>
 public sealed class SearchSource(
     HttpClient http,
