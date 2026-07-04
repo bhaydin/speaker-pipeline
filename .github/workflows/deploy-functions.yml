@@ -89,12 +89,15 @@ jobs:
           for attempt in $(seq 1 12); do
             names=$(az functionapp function list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query "[].name" -o tsv 2>/dev/null || true)
             echo "attempt ${attempt}: [${names//$'\n'/, }]"
-            if echo "$names" | grep -Eq "(^|/)ScoringAgentHttpTrigger$" && echo "$names" | grep -Eq "(^|/)ScoringAgentTimerTrigger$"; then
+            if echo "$names" | grep -Eq "(^|/)ScoringAgentHttpTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)ScoringAgentTimerTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceHttpTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceTimerTrigger$"; then
               exit 0
             fi
             sleep 15
           done
-          echo "::error::Expected functions (ScoringAgentHttpTrigger, ScoringAgentTimerTrigger) not registered after deploy."
+          echo "::error::Expected functions (ScoringAgent{Http,Timer}Trigger, TrackerMaintenance{Http,Timer}Trigger) not registered after deploy."
           exit 1
 
       - name: Azure logout

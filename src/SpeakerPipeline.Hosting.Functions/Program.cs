@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SpeakerPipeline.Agents.Scoring;
+using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
 
 var host = new HostBuilder()
@@ -18,6 +19,7 @@ var host = new HostBuilder()
         // is set in configuration; no explicit telemetry call needed here.
 
         services.AddScoringAgent(ctx.Configuration);
+        services.AddTrackerMaintenanceAgent(ctx.Configuration);
 
         services.AddTransient<BearerTokenHandler>();
         services
