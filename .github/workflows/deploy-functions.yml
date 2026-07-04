@@ -92,12 +92,14 @@ jobs:
             if echo "$names" | grep -Eq "(^|/)ScoringAgentHttpTrigger$" \
               && echo "$names" | grep -Eq "(^|/)ScoringAgentTimerTrigger$" \
               && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceHttpTrigger$" \
-              && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceTimerTrigger$"; then
+              && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceTimerTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)DiscoveryHttpTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)DiscoveryTimerTrigger$"; then
               exit 0
             fi
             sleep 15
           done
-          echo "::error::Expected functions (ScoringAgent{Http,Timer}Trigger, TrackerMaintenance{Http,Timer}Trigger) not registered after deploy."
+          echo "::error::Expected functions (ScoringAgent, TrackerMaintenance, Discovery {Http,Timer}Trigger) not registered after deploy."
           exit 1
 
       - name: Azure logout

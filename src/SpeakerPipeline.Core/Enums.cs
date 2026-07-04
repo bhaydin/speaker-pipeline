@@ -64,6 +64,20 @@ public enum SubmissionStatus
     Withdrawn,
 }
 
+/// <summary>
+/// State of an event's call for speakers, as observed by the discovery agent.
+/// <see cref="RevalidateLive"/> flags a candidate whose sources disagree and
+/// must be re-checked against the live/official page before it is trusted.
+/// </summary>
+public enum CfpStatus
+{
+    Unknown,
+    Open,
+    Closed,
+    NotYetOpen,
+    RevalidateLive,
+}
+
 public enum Lane
 {
     AgentOps,
