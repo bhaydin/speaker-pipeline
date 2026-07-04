@@ -120,6 +120,8 @@ public static class AuthExtensions
             return [];
         }
 
+        audience = audience.Trim();
+
         const string apiPrefix = "api://";
         var audiences = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { audience };
         if (audience.StartsWith(apiPrefix, StringComparison.OrdinalIgnoreCase))
