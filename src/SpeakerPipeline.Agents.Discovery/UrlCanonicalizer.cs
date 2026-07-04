@@ -20,14 +20,16 @@ internal static class UrlCanonicalizer
             return url?.Trim() ?? string.Empty;
         }
 
+        var scheme = uri.Scheme.ToLowerInvariant();
         var host = uri.Host.ToLowerInvariant();
+        var port = uri.IsDefaultPort ? string.Empty : $":{uri.Port}";
         var path = uri.AbsolutePath.TrimEnd('/');
         if (path.Length == 0)
         {
             path = "/";
         }
 
-        return $"{uri.Scheme.ToLowerInvariant()}://{host}{path}";
+        return $"{scheme}://{host}{port}{path}";
     }
 
     public static bool IsSessionize(string? url)
