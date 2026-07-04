@@ -45,4 +45,24 @@ public class AuthExtensionsTests
     [InlineData("   ")]
     public void ExpandAudiences_empty_input_yields_empty(string? audience)
         => Assert.Empty(AuthExtensions.ExpandAudiences(audience));
+
+    [Fact]
+    public void ExpandIssuers_from_v2_authority_accepts_both_v1_and_v2()
+    {
+        var result = AuthExtensions.ExpandIssuers(
+            "https://login.microsoftonline.com/35cd3241-d250-4a26-93c8-ee676440a2b7/v2.0");
+
+        // v2.0 issuer (interactive / v2 tokens)
+        Assert.Contains("https://login.microsoftonline.com/35cd3241-d250-4a26-93c8-ee676440a2b7/v2.0", result);
+        // v1.0 issuer (Managed Identity tokens)
+        Assert.Contains("https://sts.windows.net/35cd3241-d250-4a26-93c8-ee676440a2b7/", result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("not-a-uri")]
+    [InlineData("https://login.microsoftonline.com/")] // no tenant segment
+    public void ExpandIssuers_unparseable_yields_empty(string? authority)
+        => Assert.Empty(AuthExtensions.ExpandIssuers(authority));
 }

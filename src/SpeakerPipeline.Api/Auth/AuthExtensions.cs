@@ -70,10 +70,12 @@ public static class AuthExtensions
                     "Authentication__Audience (ideally a Key Vault reference).");
             }
 
+            var validIssuers = ExpandIssuers(authority);
+
             builder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.Authority = authority;
-                options.TokenValidationParameters = new TokenValidationParameters
+                var parameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
@@ -85,6 +87,20 @@ public static class AuthExtensions
                     // requested its token.
                     ValidAudiences = ExpandAudiences(audience),
                 };
+
+                // Managed Identity access tokens are v1.0 — issuer
+                // https://sts.windows.net/<tenant>/ — but a v2.0 Authority otherwise
+                // validates only the v2.0 issuer (https://login.microsoftonline.com/
+                // <tenant>/v2.0), so MI callers (the Functions host) get 401s.
+                // Accept both issuers for the tenant; signing keys still come from
+                // the Authority's metadata. Leave unset if the tenant can't be
+                // parsed so metadata-derived validation applies instead of rejecting all.
+                if (validIssuers.Length > 0)
+                {
+                    parameters.ValidIssuers = validIssuers;
+                }
+
+                options.TokenValidationParameters = parameters;
             });
         }
 
@@ -134,5 +150,32 @@ public static class AuthExtensions
         }
 
         return [.. audiences];
+    }
+
+    /// <summary>
+    /// Derives the accepted token issuers for the tenant in <paramref name="authority"/>:
+    /// the v2.0 issuer (https://login.microsoftonline.com/&lt;tenant&gt;/v2.0) and the
+    /// v1.0 issuer (https://sts.windows.net/&lt;tenant&gt;/) that Managed Identity tokens
+    /// carry. Returns empty when the tenant can't be parsed, so the caller can fall
+    /// back to Authority-metadata validation rather than rejecting everything.
+    /// </summary>
+    internal static string[] ExpandIssuers(string? authority)
+    {
+        if (!Uri.TryCreate(authority?.Trim(), UriKind.Absolute, out var uri))
+        {
+            return [];
+        }
+
+        var tenant = uri.AbsolutePath.Trim('/').Split('/').FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(tenant))
+        {
+            return [];
+        }
+
+        return
+        [
+            $"https://login.microsoftonline.com/{tenant}/v2.0",
+            $"https://sts.windows.net/{tenant}/",
+        ];
     }
 }
