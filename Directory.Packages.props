@@ -19,6 +19,13 @@
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
     <PackageVersion Include="Microsoft.ApplicationInsights.WorkerService" Version="3.1.2" />
     <!-- Azure SDKs -->
+    <!-- Azure.AI.OpenAI: the stable line (2.1.0) predates gpt-5 / model-router
+         and their required service api-version. 2.9.0-beta.1 is the release that
+         supports the deployed models and aligns with the OpenAI 2.10.0 that
+         Microsoft.Extensions.AI.OpenAI 10.6.0 resolves, keeping the
+         AzureOpenAIClient → ChatClient → AsIChatClient() chain on one OpenAI
+         version. Pin exactly; revisit when a stable release lands. -->
+    <PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
     <PackageVersion Include="Azure.Data.Tables" Version="12.11.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
