@@ -20,6 +20,14 @@ public sealed class GoogleProgrammableSearchAdapter(
 
     public async Task<IReadOnlyList<SearchHit>> SearchAsync(string query, int maxResults, CancellationToken ct = default)
     {
+        if (!string.Equals(_options.Provider, "GoogleProgrammableSearch", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "Search skipped: provider '{Provider}' is not supported by GoogleProgrammableSearchAdapter.",
+                _options.Provider);
+            return [];
+        }
+
         if (string.IsNullOrWhiteSpace(_options.ApiKey) || string.IsNullOrWhiteSpace(_options.Cx))
         {
             logger.LogWarning("Search skipped: Google ApiKey/Cx not configured.");
