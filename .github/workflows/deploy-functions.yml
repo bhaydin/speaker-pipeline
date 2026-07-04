@@ -8,7 +8,7 @@ on:
       - 'src/SpeakerPipeline.Hosting.Functions/**'
       - 'src/SpeakerPipeline.Agents.Scoring/**'
       - 'src/SpeakerPipeline.Core/**'
-      - 'infra/scoring-functions.dev.settings.json'
+      - 'infra/functions.dev.settings.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
  
@@ -76,7 +76,7 @@ jobs:
         run: |
           az functionapp config appsettings set \
             -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" \
-            --settings @infra/scoring-functions.dev.settings.json \
+            --settings @infra/functions.dev.settings.json \
             --output none
 
       # A deployed package can still register zero functions if the host fails to
