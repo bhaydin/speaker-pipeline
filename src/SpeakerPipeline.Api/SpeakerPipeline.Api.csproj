@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SpeakerPipeline.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Storage\SpeakerPipeline.Storage.csproj" />
   </ItemGroup>

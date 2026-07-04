@@ -13,6 +13,7 @@ on:
  
 env:
   AZURE_FUNCTIONAPP_NAME: func-speakerpipeline-dev
+  AZURE_RESOURCE_GROUP: rg-speakerpipeline-dev
   AZURE_FUNCTIONAPP_PACKAGE_PATH: './publish'
   DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: src/SpeakerPipeline.Hosting.Functions/SpeakerPipeline.Hosting.Functions.csproj
@@ -63,7 +64,25 @@ jobs:
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
- 
+
+      # A deployed package can still register zero functions if the host fails to
+      # start or index. Poll until both expected functions show up, and fail the
+      # job if they never do — the check a green deploy alone does not give you.
+      - name: Smoke test — functions registered
+        run: |
+          set -euo pipefail
+          echo "Waiting for the host to index functions..."
+          for attempt in $(seq 1 12); do
+            names=$(az functionapp function list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query "[].name" -o tsv 2>/dev/null || true)
+            echo "attempt ${attempt}: [${names//$'\n'/, }]"
+            if echo "$names" | grep -Eq "(^|/)ScoringAgentHttpTrigger$" && echo "$names" | grep -Eq "(^|/)ScoringAgentTimerTrigger$"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Expected functions (ScoringAgentHttpTrigger, ScoringAgentTimerTrigger) not registered after deploy."
+          exit 1
+
       - name: Azure logout
         if: always()
         run: az logout

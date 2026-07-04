@@ -13,6 +13,7 @@ on:
  
 env:
   AZURE_WEBAPP_NAME: app-speakerpipeline-api-dev
+  AZURE_RESOURCE_GROUP: rg-speakerpipeline-dev
   AZURE_WEBAPP_PACKAGE_PATH: './publish'
   DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: src/SpeakerPipeline.Api/SpeakerPipeline.Api.csproj
@@ -59,7 +60,29 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
- 
+
+      # A green deploy only means Azure accepted the package. Prove the app
+      # actually serves: poll /health through the cold-start window and fail the
+      # job on non-200. This is what would have caught the JwtBearer misconfig
+      # that left the app booting green but 500ing every request.
+      - name: Smoke test — API /health
+        run: |
+          set -euo pipefail
+          host=$(az webapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --query defaultHostName -o tsv)
+          url="https://${host}/health"
+          echo "Probing $url"
+          for attempt in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            echo "attempt ${attempt}: HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              echo "API is healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::API /health did not return 200 within the warm-up window."
+          exit 1
+
       - name: Azure logout
         if: always()
         run: az logout
