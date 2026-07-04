@@ -166,15 +166,21 @@ public static class AuthExtensions
             return [];
         }
 
-        var tenant = uri.AbsolutePath.Trim('/').Split('/').FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(tenant))
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 2 || !string.Equals(segments[1], "v2.0", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var tenant = segments[0];
+        if (!Guid.TryParse(tenant, out _))
         {
             return [];
         }
 
         return
         [
-            $"https://login.microsoftonline.com/{tenant}/v2.0",
+            $"{uri.Scheme}://{uri.Host}/{tenant}/v2.0",
             $"https://sts.windows.net/{tenant}/",
         ];
     }
