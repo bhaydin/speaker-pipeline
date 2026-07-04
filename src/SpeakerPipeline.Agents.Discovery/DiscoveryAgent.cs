@@ -149,11 +149,23 @@ public sealed partial class DiscoveryAgent
             if (firstNewline >= 0)
             {
                 trimmed = trimmed[(firstNewline + 1)..];
+                if (trimmed.EndsWith("```", StringComparison.Ordinal))
+                {
+                    trimmed = trimmed[..^3];
+                }
             }
-            if (trimmed.EndsWith("```", StringComparison.Ordinal))
+            else
             {
-                trimmed = trimmed[..^3];
+                // One-line fence (e.g. ```json{...}```) — fall back to extracting the JSON object bounds.
+                var firstBrace = trimmed.IndexOf('{');
+                var lastBrace = trimmed.LastIndexOf('}');
+                if (firstBrace >= 0 && lastBrace > firstBrace)
+                {
+                    trimmed = trimmed[firstBrace..(lastBrace + 1)];
+                }
             }
+
+            trimmed = trimmed.Trim();
         }
 
         try
