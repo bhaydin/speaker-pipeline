@@ -30,7 +30,7 @@ public sealed class SearchOptions
     /// <summary>Extraction-confidence floor for search candidates (0–1); higher than the watchlist since search is noisier.</summary>
     public double MinCandidateConfidence { get; set; } = 0.65;
 
-    /// <summary>Honor robots directives when fetching candidate pages.</summary>
+    /// <summary>Whether to honor robots directives when fetching candidate pages (not yet enforced; reserved for future robots.txt parsing).</summary>
     public bool RespectRobots { get; set; } = true;
 
     /// <summary>Targeted queries, e.g. site:sessionize.com "Call for Speakers" "Azure" "2026".</summary>
