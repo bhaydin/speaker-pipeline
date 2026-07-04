@@ -26,6 +26,20 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<ISourceAdapter>(sp => sp.GetRequiredService<WatchlistSource>());
 
+        // Targeted search-discovery. Provider-neutral (ISearchAdapter); Google
+        // Programmable Search is the only concrete adapter today. SearchSource
+        // no-ops when Search:Enabled is false, so registering it is always safe.
+        services.AddOptions<SearchOptions>()
+            .Bind(configuration.GetSection(SearchOptions.SectionName));
+        services.AddHttpClient<ISearchAdapter, GoogleProgrammableSearchAdapter>(c =>
+            c.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient<SearchSource>(c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(20);
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("SpeakerPipeline-DiscoveryAgent/1.0");
+        });
+        services.AddTransient<ISourceAdapter>(sp => sp.GetRequiredService<SearchSource>());
+
         services.AddTransient(sp => new DiscoveryAgent(
             sp.GetRequiredKeyedService<IChatClient>(DiscoveryChatClientExtensions.DiscoveryClientKey),
             sp.GetRequiredService<ISpeakerPipelineApiClient>(),

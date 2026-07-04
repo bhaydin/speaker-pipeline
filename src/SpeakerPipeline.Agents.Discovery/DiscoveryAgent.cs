@@ -82,17 +82,18 @@ public sealed partial class DiscoveryAgent
                 continue;
             }
 
-            if (!extracted.IsEvent || string.IsNullOrWhiteSpace(extracted.EventName) || extracted.Confidence < MinConfidence)
+            var minConfidence = page.MinConfidence ?? MinConfidence;
+            if (!extracted.IsEvent || string.IsNullOrWhiteSpace(extracted.EventName) || extracted.Confidence < minConfidence)
             {
-                _logger.LogInformation("Discovery: skipped {Url} (isEvent={IsEvent}, confidence={Confidence})",
-                    page.Url, extracted.IsEvent, extracted.Confidence);
+                _logger.LogInformation("Discovery: skipped {Url} (isEvent={IsEvent}, confidence={Confidence}, floor={Floor})",
+                    page.Url, extracted.IsEvent, extracted.Confidence, minConfidence);
                 continue;
             }
 
             var slug = Slugify(extracted.EventName);
             existing.TryGetValue(slug, out var current);
 
-            var (upsert, summary, isNew) = Reconcile(current, extracted, slug, page.Source, now, decidedBy);
+            var (upsert, summary, isNew) = Reconcile(current, extracted, slug, page.Source, now, decidedBy, page.DiscoveredVia);
             if (upsert is null)
             {
                 continue;
@@ -189,10 +190,22 @@ public sealed partial class DiscoveryAgent
     /// when there is nothing to write, which keeps the run idempotent.
     /// </summary>
     internal static (EventRecord? Upsert, string ChangeSummary, bool IsNew) Reconcile(
-        EventRecord? existing, ExtractedEvent extracted, string slug, SourceSeenOn source, DateTimeOffset now, string decidedBy)
+        EventRecord? existing, ExtractedEvent extracted, string slug, SourceSeenOn source, DateTimeOffset now, string decidedBy,
+        string? discoveredVia = null)
     {
         if (existing is null)
         {
+            // A newly-discovered CFP that is already closed isn't worth tracking when it came from search —
+            // don't flood the tracker with dead opportunities from search noise.
+            if (!string.IsNullOrWhiteSpace(discoveredVia) && extracted.CfpStatus == CfpStatus.Closed)
+            {
+                return (null, "skipped: cfp closed", false);
+            }
+
+            var provenance = string.IsNullOrWhiteSpace(discoveredVia)
+                ? "Discovered"
+                : $"Discovered via search: {discoveredVia}";
+
             var created = new EventRecord
             {
                 Slug = slug,
@@ -213,7 +226,7 @@ public sealed partial class DiscoveryAgent
                 SourceSeenOn = source,
                 LastVerifiedUtc = now,
                 DiscoveredByAgent = decidedBy,
-                StatusDetail = "Discovered",
+                StatusDetail = provenance,
             };
             return (created, "new", true);
         }
