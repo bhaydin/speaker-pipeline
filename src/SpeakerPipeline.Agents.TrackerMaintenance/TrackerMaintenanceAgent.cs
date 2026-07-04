@@ -68,7 +68,9 @@ public sealed class TrackerMaintenanceAgent
 
             var updated = ev with
             {
+                Category = derived.Value,
                 StatusDetail = $"Category set to {derived.Value} from submission status by {_options.AgentName}-{_options.AgentVersion}.",
+            };
 
             try
             {
