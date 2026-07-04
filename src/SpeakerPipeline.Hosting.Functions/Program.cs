@@ -1,10 +1,8 @@
 using System.Net.Http.Headers;
 using Azure.Identity;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Client;
 
@@ -26,22 +24,11 @@ var host = new HostBuilder()
             .AddSpeakerPipelineApiClient(ctx.Configuration)
             .AddHttpMessageHandler<BearerTokenHandler>();
 
-        // IChatClient — provider chosen by configuration.
-        //
-        // Phase 2 leaves the concrete IChatClient registration as a TODO.
-        // The intended production wiring uses Microsoft.Agents.AI.OpenAI's
-        // Foundry binding with DefaultAzureCredential. The eval suite injects
-        // its own IChatClient so the runtime registration is not needed to
-        // exercise the agent in tests.
-        services.AddSingleton<IChatClient>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<BearerTokenHandler>>();
-            logger.LogWarning(
-                "IChatClient is not yet wired for production. Configure ScoringAgent:Provider " +
-                "(foundry|azureopenai|openai) and bind a real IChatClient before deploying.");
-            throw new NotImplementedException(
-                "IChatClient registration is TODO. See SpeakerPipeline.Hosting.Functions/Program.cs.");
-        });
+        // IChatClient — Azure AI Foundry via its Azure OpenAI endpoint, chosen by
+        // ScoringAgent:Provider and authenticated with the app's managed identity.
+        // The eval suite injects its own deterministic IChatClient, so this
+        // runtime binding is not exercised by the goldens.
+        services.AddScoringChatClient(ctx.Configuration);
     })
     .Build();
 
