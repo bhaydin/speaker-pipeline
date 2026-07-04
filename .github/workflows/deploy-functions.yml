@@ -8,7 +8,7 @@ on:
       - 'src/SpeakerPipeline.Hosting.Functions/**'
       - 'src/SpeakerPipeline.Agents.Scoring/**'
       - 'src/SpeakerPipeline.Core/**'
-      - 'infra/scoring-functions.settings.json'
+      - 'infra/scoring-functions.dev.settings.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
  
@@ -60,6 +60,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+
       # Scoring agent runtime config (Foundry endpoint/model, MI selection, API
       # client). Applied additively — `az ... appsettings set` merges rather than
       # replaces, so the host's AzureWebJobsStorage / App Insights settings are
@@ -70,14 +76,8 @@ jobs:
         run: |
           az functionapp config appsettings set \
             -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" \
-            --settings @infra/scoring-functions.settings.json \
+            --settings @infra/scoring-functions.dev.settings.json \
             --output none
-
-      - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       # A deployed package can still register zero functions if the host fails to
       # start or index. Poll until both expected functions show up, and fail the
