@@ -249,7 +249,7 @@ public sealed partial class DiscoveryAgent
             Format = extracted.Format ?? existing.Format,
             CfpUrl = extracted.CfpUrl ?? existing.CfpUrl,
             LastVerifiedUtc = now,
-            DiscoveredByAgent = decidedBy,
+            DiscoveredByAgent = existing.DiscoveredByAgent ?? decidedBy,
             StatusDetail = $"Updated by discovery: {summary}",
         };
         return (updated, summary, false);
