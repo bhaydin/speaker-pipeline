@@ -58,7 +58,20 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
- 
+
+      # Scoring agent runtime config (Foundry endpoint/model, MI selection, API
+      # client). Applied additively — `az ... appsettings set` merges rather than
+      # replaces, so the host's AzureWebJobsStorage / App Insights settings are
+      # preserved. This lives here, not in Bicep, because ARM cannot read and
+      # write the same appsettings resource in one deployment (circular); the
+      # fully declarative home is the func app's Bicep model in the reconciliation.
+      - name: Configure scoring app settings
+        run: |
+          az functionapp config appsettings set \
+            -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" \
+            --settings @infra/scoring-functions.settings.json \
+            --output none
+
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
