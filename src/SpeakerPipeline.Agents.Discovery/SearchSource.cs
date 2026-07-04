@@ -76,7 +76,7 @@ public sealed class SearchSource(
     /// </summary>
     internal static IReadOnlyList<SearchHit> Dedupe(IEnumerable<SearchHit> hits)
     {
-        var seen = new Dictionary<string, SearchHit>(StringComparer.OrdinalIgnoreCase);
+        var seen = new Dictionary<string, SearchHit>(StringComparer.Ordinal);
 
         foreach (var hit in hits)
         {
