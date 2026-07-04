@@ -36,7 +36,8 @@ public sealed class GoogleProgrammableSearchAdapter(
 
         // The Custom Search API caps a single request at 10 results.
         var num = Math.Clamp(maxResults, 1, 10);
-        var url = $"{_options.Endpoint}?key={Uri.EscapeDataString(_options.ApiKey)}" +
+        var separator = _options.Endpoint.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        var url = $"{_options.Endpoint}{separator}key={Uri.EscapeDataString(_options.ApiKey)}" +
                   $"&cx={Uri.EscapeDataString(_options.Cx)}" +
                   $"&q={Uri.EscapeDataString(query)}&num={num}";
 
