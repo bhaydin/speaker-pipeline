@@ -102,8 +102,11 @@ public static class AuthExtensions
     /// form JwtBearer accepts for metadata discovery outside development.
     /// </summary>
     internal static bool IsValidHttpsAuthority(string? authority)
-        => Uri.TryCreate(authority, UriKind.Absolute, out var uri)
+    {
+        authority = authority?.Trim();
+        return Uri.TryCreate(authority, UriKind.Absolute, out var uri)
             && uri.Scheme == Uri.UriSchemeHttps;
+    }
 
     /// <summary>
     /// Expands a single configured audience into the set actually seen across
