@@ -75,8 +75,7 @@ jobs:
           for attempt in $(seq 1 12); do
             names=$(az functionapp function list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query "[].name" -o tsv 2>/dev/null || true)
             echo "attempt ${attempt}: [${names//$'\n'/, }]"
-            if echo "$names" | grep -qx "ScoringAgentHttpTrigger" && echo "$names" | grep -qx "ScoringAgentTimerTrigger"; then
-              echo "Both scoring functions registered."
+            if echo "$names" | grep -Eq "(^|/)ScoringAgentHttpTrigger$" && echo "$names" | grep -Eq "(^|/)ScoringAgentTimerTrigger$"; then
               exit 0
             fi
             sleep 15
