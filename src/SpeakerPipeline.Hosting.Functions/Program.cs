@@ -7,6 +7,7 @@ using SpeakerPipeline.Agents.Discovery;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
+using SpeakerPipeline.Notifications;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
@@ -22,6 +23,7 @@ var host = new HostBuilder()
         services.AddScoringAgent(ctx.Configuration);
         services.AddTrackerMaintenanceAgent(ctx.Configuration);
         services.AddDiscoveryAgent(ctx.Configuration);
+        services.AddNotifications(ctx.Configuration);
 
         services.AddTransient<BearerTokenHandler>();
         services

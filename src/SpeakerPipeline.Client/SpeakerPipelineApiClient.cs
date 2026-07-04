@@ -125,6 +125,16 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
         return (await resp.Content.ReadFromJsonAsync<EventRecord>(JsonOpts, ct))!;
     }
 
+    public async Task<IReadOnlyList<NotificationLogRecord>> GetNotificationsAsync(string period, CancellationToken ct = default)
+        => await GetJsonAsync<IReadOnlyList<NotificationLogRecord>>($"v1/notifications/{Uri.EscapeDataString(period)}", ct) ?? [];
+
+    public async Task<NotificationLogRecord> LogNotificationAsync(NotificationLogRecord record, CancellationToken ct = default)
+    {
+        using var resp = await http.PostAsJsonAsync("v1/notifications", record, JsonOpts, ct);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<NotificationLogRecord>(JsonOpts, ct))!;
+    }
+
     private async Task<T?> GetJsonAsync<T>(string path, CancellationToken ct, bool allow404 = false)
     {
         using var resp = await http.GetAsync(path, ct);

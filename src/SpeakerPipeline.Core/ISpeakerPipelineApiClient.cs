@@ -55,4 +55,12 @@ public interface ISpeakerPipelineApiClient
     /// set enforces the intent-vs-confirmation ambiguity guard.
     /// </summary>
     Task<EventRecord> ApplyPipelineActionAsync(string slug, PipelineActionRequest request, CancellationToken ct = default);
+
+    // ---- Notifications ---------------------------------------------------
+
+    /// <summary>All notifications logged in a period ("yyyy-MM") — the dedup + digest feed.</summary>
+    Task<IReadOnlyList<NotificationLogRecord>> GetNotificationsAsync(string period, CancellationToken ct = default);
+
+    /// <summary>Records a sent notification (idempotent on Period + NotificationId).</summary>
+    Task<NotificationLogRecord> LogNotificationAsync(NotificationLogRecord record, CancellationToken ct = default);
 }

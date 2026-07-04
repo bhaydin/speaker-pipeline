@@ -8,6 +8,7 @@
     <Project Path="src/SpeakerPipeline.Core/SpeakerPipeline.Core.csproj" />
     <Project Path="src/SpeakerPipeline.Hosting.Functions/SpeakerPipeline.Hosting.Functions.csproj" />
     <Project Path="src/SpeakerPipeline.Mcp/SpeakerPipeline.Mcp.csproj" />
+    <Project Path="src/SpeakerPipeline.Notifications/SpeakerPipeline.Notifications.csproj" />
     <Project Path="src/SpeakerPipeline.Storage/SpeakerPipeline.Storage.csproj" />
   </Folder>
   <Folder Name="/tools/">
@@ -21,6 +22,7 @@
     <Project Path="tests/SpeakerPipeline.Agents.TrackerMaintenance.Tests/SpeakerPipeline.Agents.TrackerMaintenance.Tests.csproj" />
     <Project Path="tests/SpeakerPipeline.Api.Tests/SpeakerPipeline.Api.Tests.csproj" />
     <Project Path="tests/SpeakerPipeline.Core.Tests/SpeakerPipeline.Core.Tests.csproj" />
+    <Project Path="tests/SpeakerPipeline.Notifications.Tests/SpeakerPipeline.Notifications.Tests.csproj" />
     <Project Path="tests/SpeakerPipeline.Storage.Tests/SpeakerPipeline.Storage.Tests.csproj" />
   </Folder>
 </Solution>
