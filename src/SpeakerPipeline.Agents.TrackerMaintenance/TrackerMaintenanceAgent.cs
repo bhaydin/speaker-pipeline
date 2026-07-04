@@ -54,6 +54,11 @@ public sealed class TrackerMaintenanceAgent
         {
             considered++;
 
+            if (ev.Category is EventCategory.Delivered or EventCategory.Skip)
+            {
+                continue;
+            }
+
             var submissions = await _api.GetSubmissionsForEventAsync(ev.Slug, ct);
             var derived = DeriveCategory(ev.Category, submissions.Select(s => s.Status));
             if (derived is null || derived == ev.Category)
