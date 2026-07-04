@@ -101,6 +101,16 @@ resource api 'Microsoft.Web/sites@2023-12-01' = {
           value: apiIdentityClientId
         }
         {
+          // The key the API's OpenTelemetry wiring reads
+          // (ObservabilityExtensions reads "ApplicationInsights:ConnectionString").
+          // Without this the AzureMonitor exporter is never configured and the
+          // API sends no telemetry.
+          name: 'ApplicationInsights__ConnectionString'
+          value: appInsightsConnectionString
+        }
+        {
+          // Azure-standard name: makes the portal App Insights blade show the
+          // app as connected. Not read by the app's OTel code.
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
         }
