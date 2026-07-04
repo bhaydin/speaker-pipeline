@@ -8,6 +8,7 @@ on:
       - 'src/SpeakerPipeline.Hosting.Functions/**'
       - 'src/SpeakerPipeline.Agents.Scoring/**'
       - 'src/SpeakerPipeline.Core/**'
+      - 'infra/scoring-functions.settings.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
  
