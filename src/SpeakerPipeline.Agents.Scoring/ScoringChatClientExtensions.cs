@@ -39,12 +39,11 @@ public static class ScoringChatClientExtensions
         {
             case "foundry":
             case "azureopenai":
-                if (string.IsNullOrWhiteSpace(options.Endpoint))
+                if (!Uri.TryCreate(options.Endpoint, UriKind.Absolute, out var endpointUri))
                 {
                     throw new InvalidOperationException(
-                        "ScoringAgent:Endpoint is required for the 'foundry'/'azureopenai' provider " +
-                        "(e.g. https://<foundry>.openai.azure.com/). Set it on the Functions app, " +
-                        "ideally as a Key Vault reference to the Foundry-Endpoint secret.");
+                        "ScoringAgent:Endpoint must be an absolute URI for the 'foundry'/'azureopenai' provider " +
+                        "(e.g. https://<foundry>.openai.azure.com/).");
                 }
 
                 if (string.IsNullOrWhiteSpace(options.ModelName) || options.ModelName == "<placeholder>")
@@ -61,7 +60,7 @@ public static class ScoringChatClientExtensions
                         ManagedIdentityClientId = options.ManagedIdentityClientId,
                     });
 
-                return new AzureOpenAIClient(new Uri(options.Endpoint), credential)
+                return new AzureOpenAIClient(endpointUri, credential)
                     .GetChatClient(options.ModelName)
                     .AsIChatClient();
 
