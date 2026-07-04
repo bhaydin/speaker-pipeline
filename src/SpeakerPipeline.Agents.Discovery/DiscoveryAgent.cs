@@ -195,9 +195,9 @@ public sealed partial class DiscoveryAgent
     {
         if (existing is null)
         {
-            // A newly-discovered CFP that is already closed isn't worth tracking —
+            // A newly-discovered CFP that is already closed isn't worth tracking when it came from search —
             // don't flood the tracker with dead opportunities from search noise.
-            if (extracted.CfpStatus == CfpStatus.Closed)
+            if (!string.IsNullOrWhiteSpace(discoveredVia) && extracted.CfpStatus == CfpStatus.Closed)
             {
                 return (null, "skipped: cfp closed", false);
             }
