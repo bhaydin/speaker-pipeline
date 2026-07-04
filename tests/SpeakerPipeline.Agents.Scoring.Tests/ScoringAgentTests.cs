@@ -93,6 +93,47 @@ public class ScoringAgentTests
         var agent = CreateAgent(chat);
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => agent.ScoreAsync(SampleEvent, [SampleTalk]));
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ScoreAsync_throws_when_model_returns_no_content(string content)
+    {
+        var chat = new FakeChatClient();
+        chat.Enqueue(content);
+
+        var agent = CreateAgent(chat);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => agent.ScoreAsync(SampleEvent, [SampleTalk]));
+    }
+
+    [Theory]
+    [InlineData("null")]                  // valid JSON literal, deserializes to null
+    [InlineData("not json at all")]       // not JSON
+    [InlineData("{\"fitScore\": 5")]      // truncated JSON
+    public async Task ScoreAsync_throws_on_unparseable_model_output(string content)
+    {
+        var chat = new FakeChatClient();
+        chat.Enqueue(content);
+
+        var agent = CreateAgent(chat);
+        // InvalidOperationException for "null", JsonException for malformed — both are failures.
+        await Assert.ThrowsAnyAsync<Exception>(() => agent.ScoreAsync(SampleEvent, [SampleTalk]));
+    }
+
+    [Fact]
+    public async Task ScoreAsync_overrides_slug_when_model_echoes_a_different_one()
+    {
+        var chat = new FakeChatClient();
+        chat.Enqueue("""
+            {"eventSlug":"some-hallucinated-slug","recommendation":"Monitor","rationale":"x","fitScore":5,"effortScore":5,"confidenceScore":5}
+            """);
+
+        var agent = CreateAgent(chat);
+        var decision = await agent.ScoreAsync(SampleEvent, [SampleTalk]);
+
+        // The real event's slug is recorded, not the one the model echoed back.
+        Assert.Equal(SampleEvent.Slug, decision.EventSlug);
+    }
 }
 
 internal sealed class FakeApiClient : ISpeakerPipelineApiClient
