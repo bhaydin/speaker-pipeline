@@ -122,7 +122,10 @@ internal sealed class HeuristicChatClient : IChatClient
         }
         else if (lane.HasValue)
         {
-            var urgentDeadline = deadlineDays is double d and (> 0 and < 14);
+            var urgentDeadline = (deadlineDays is double d and (> 0 and < 14))
+                || notes.Contains("closing in under two weeks", StringComparison.Ordinal)
+                || notes.Contains("under two weeks", StringComparison.Ordinal)
+                || notes.Contains("late-window cfp", StringComparison.OrdinalIgnoreCase);
             var lowEffort = c.Format == EventFormat.Virtual
                             || notes.Contains("reused", StringComparison.Ordinal)
                             || notes.Contains("recorded", StringComparison.Ordinal);
