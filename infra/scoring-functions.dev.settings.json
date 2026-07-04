@@ -1,0 +1,8 @@
+{
+  "AZURE_CLIENT_ID": "6d1751b1-3df3-4000-ab87-d734793042b1",
+  "ScoringAgent__Provider": "foundry",
+  "ScoringAgent__Endpoint": "https://foundry-speakerpipeline-dev.openai.azure.com/",
+  "ScoringAgent__ModelName": "gpt-5-mini",
+  "SpeakerPipelineApi__BaseUrl": "https://app-speakerpipeline-api-dev-aedbhkc6d6a7hpdu.eastus2-01.azurewebsites.net/",
+  "SpeakerPipelineApi__Scope": "api://bace4d6a-9ebd-4fac-a152-d1c67d593a41/.default"
+}
