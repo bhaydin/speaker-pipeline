@@ -9,7 +9,7 @@ public sealed class SearchOptions
 {
     public const string SectionName = "Search";
 
-    /// <summary>When false, no search source is registered and only the watchlist runs.</summary>
+    /// <summary>When false, search discovery no-ops and only the watchlist runs.</summary>
     public bool Enabled { get; set; }
 
     /// <summary>Selects the concrete adapter, e.g. "GoogleProgrammableSearch".</summary>
