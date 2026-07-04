@@ -6,7 +6,7 @@ namespace SpeakerPipeline.Agents.Discovery;
 /// A raw page pulled from a discovery source, normalized to text ready for
 /// extraction.
 /// </summary>
-/// <param name="Url">Canonical URL of the fetched page.</param>
+/// <param name="Url">URL of the fetched page (ideally canonical).</param>
 /// <param name="Source">Which source this page belongs to.</param>
 /// <param name="Content">Normalized page text.</param>
 /// <param name="DiscoveredVia">
