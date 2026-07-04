@@ -19,7 +19,8 @@ public static class ScoringChatClientExtensions
     public static IServiceCollection AddScoringChatClient(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<ScoringAgentOptions>()
-            .Bind(configuration.GetSection(ScoringAgentOptions.SectionName));
+            .Bind(configuration.GetSection(ScoringAgentOptions.SectionName))
+            .ValidateOnStart();
 
         services.AddSingleton<IChatClient>(sp =>
             CreateChatClient(sp.GetRequiredService<IOptions<ScoringAgentOptions>>().Value));
