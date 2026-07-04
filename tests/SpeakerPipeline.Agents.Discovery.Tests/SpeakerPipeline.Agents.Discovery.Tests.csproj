@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Agents.Discovery\SpeakerPipeline.Agents.Discovery.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -18,6 +18,13 @@ public sealed record EventRecord
     public DateTimeOffset? EventDateEnd { get; init; }
     public DateTimeOffset? CfpDeadline { get; init; }
     public string? CfpUrl { get; init; }
+
+    /// <summary>
+    /// Observed state of the call for speakers. Set by the discovery agent from
+    /// the fetched page; <c>RevalidateLive</c> when sources conflict.
+    /// </summary>
+    public CfpStatus? CfpStatus { get; init; }
+
     public string? EventUrl { get; init; }
     public string? Location { get; init; }
     public EventFormat? Format { get; init; }

@@ -1,0 +1,83 @@
+{
+  "version": "v1",
+  "cases": [
+    {
+      "id": "northwoods-open-cfp",
+      "note": "Open CFP with a deadline — extraction accuracy, deadline parsing, status Open.",
+      "modelOutput": "{\"isEvent\":true,\"eventName\":\"Northwoods Tech Summit 2027\",\"eventType\":\"Conference\",\"location\":\"Minocqua, WI\",\"format\":\"InPerson\",\"cfpStatus\":\"Open\",\"cfpDeadline\":\"2027-01-15T23:59:00Z\",\"focusFit\":[\"AgentOps\"],\"confidence\":9}",
+      "expected": {
+        "isEvent": true,
+        "eventName": "Northwoods Tech Summit 2027",
+        "slug": "northwoods-tech-summit-2027",
+        "cfpStatus": "Open",
+        "cfpDeadline": "2027-01-15T23:59:00Z",
+        "format": "InPerson"
+      }
+    },
+    {
+      "id": "great-lakes-closed-cfp",
+      "note": "Closed CFP — status classification.",
+      "modelOutput": "{\"isEvent\":true,\"eventName\":\"Great Lakes Cloud Conf 2027\",\"eventType\":\"Conference\",\"location\":\"Cleveland, OH\",\"format\":\"Hybrid\",\"cfpStatus\":\"Closed\",\"cfpDeadline\":null,\"focusFit\":[\"PracticalEnterpriseAI\"],\"confidence\":8}",
+      "expected": {
+        "isEvent": true,
+        "eventName": "Great Lakes Cloud Conf 2027",
+        "slug": "great-lakes-cloud-conf-2027",
+        "cfpStatus": "Closed",
+        "cfpDeadline": null,
+        "format": "Hybrid"
+      }
+    },
+    {
+      "id": "driftless-not-yet-open",
+      "note": "CFP announced but not yet accepting — NotYetOpen classification.",
+      "modelOutput": "{\"isEvent\":true,\"eventName\":\"Driftless AI Days 2027\",\"eventType\":\"CommunityChapter\",\"location\":\"La Crosse, WI\",\"format\":\"InPerson\",\"cfpStatus\":\"NotYetOpen\",\"cfpDeadline\":null,\"focusFit\":[\"AgentOps\",\"PracticalEnterpriseAI\"],\"confidence\":7}",
+      "expected": {
+        "isEvent": true,
+        "eventName": "Driftless AI Days 2027",
+        "slug": "driftless-ai-days-2027",
+        "cfpStatus": "NotYetOpen",
+        "cfpDeadline": null,
+        "format": "InPerson"
+      }
+    },
+    {
+      "id": "twin-cities-virtual",
+      "note": "Virtual event, no physical location.",
+      "modelOutput": "{\"isEvent\":true,\"eventName\":\"Twin Cities Azure UG 2027-03-15\",\"eventType\":\"UserGroup\",\"location\":null,\"format\":\"Virtual\",\"cfpStatus\":\"Open\",\"cfpDeadline\":\"2027-03-01T00:00:00Z\",\"focusFit\":[\"AgentOps\"],\"confidence\":8}",
+      "expected": {
+        "isEvent": true,
+        "eventName": "Twin Cities Azure UG 2027-03-15",
+        "slug": "twin-cities-azure-ug-2027-03-15",
+        "cfpStatus": "Open",
+        "cfpDeadline": "2027-03-01T00:00:00Z",
+        "format": "Virtual"
+      }
+    },
+    {
+      "id": "fenced-model-output",
+      "note": "Model wrapped its JSON in a markdown fence — extraction must still parse.",
+      "modelOutput": "```json\n{\"isEvent\":true,\"eventName\":\"Headwaters CodeCamp 2027\",\"eventType\":\"CodeCamp\",\"location\":\"Duluth, MN\",\"format\":\"InPerson\",\"cfpStatus\":\"Open\",\"cfpDeadline\":\"2027-01-09T23:59:00Z\",\"focusFit\":[\"M365Governance\"],\"confidence\":9}\n```",
+      "expected": {
+        "isEvent": true,
+        "eventName": "Headwaters CodeCamp 2027",
+        "slug": "headwaters-codecamp-2027",
+        "cfpStatus": "Open",
+        "cfpDeadline": "2027-01-09T23:59:00Z",
+        "format": "InPerson"
+      }
+    },
+    {
+      "id": "not-an-event-page",
+      "note": "A login wall / index page — must be rejected, not hallucinated into an event.",
+      "modelOutput": "{\"isEvent\":false,\"eventName\":\"\",\"cfpStatus\":\"Unknown\",\"confidence\":2}",
+      "expected": {
+        "isEvent": false,
+        "eventName": "",
+        "slug": "",
+        "cfpStatus": "Unknown",
+        "cfpDeadline": null,
+        "format": null
+      }
+    }
+  ]
+}

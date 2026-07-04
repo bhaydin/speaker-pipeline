@@ -65,6 +65,7 @@ az role assignment create \
 | `EventDateEnd` | DateTime |  | UTC. Null for single-day. |
 | `CfpDeadline` | DateTime |  | UTC. The thing the scoring agent sorts urgency on. |
 | `CfpUrl` | string |  | Direct submission link |
+| `CfpStatus` | string |  | `Open` / `Closed` / `NotYetOpen` / `Unknown` / `RevalidateLive` — set by the discovery agent from the fetched page; `RevalidateLive` when sources conflict |
 | `EventUrl` | string |  | Canonical event page |
 | `Location` | string |  | City, State or `Virtual` |
 | `Format` | string |  | `InPerson` / `Virtual` / `Hybrid` |

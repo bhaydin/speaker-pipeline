@@ -18,6 +18,7 @@
     <ProjectReference Include="..\SpeakerPipeline.Client\SpeakerPipeline.Client.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Agents.Scoring\SpeakerPipeline.Agents.Scoring.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Agents.TrackerMaintenance\SpeakerPipeline.Agents.TrackerMaintenance.csproj" />
+    <ProjectReference Include="..\SpeakerPipeline.Agents.Discovery\SpeakerPipeline.Agents.Discovery.csproj" />
   </ItemGroup>
 
   <ItemGroup>

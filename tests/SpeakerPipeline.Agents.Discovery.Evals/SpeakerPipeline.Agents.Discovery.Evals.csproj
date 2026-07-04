@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Discovery extraction evals. Hermetic: replays realistic recorded model
+    outputs through the extraction pipeline (parse -> map -> slug) and checks the
+    result against goldens. Surfaces drift in field mapping, deadline parsing,
+    and CFP-status classification. A future PR can add a live-model mode behind an
+    env var (as the scoring evals do). Dedup/reconcile is covered by the unit tests.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Agents.Discovery\SpeakerPipeline.Agents.Discovery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Goldens\goldens.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

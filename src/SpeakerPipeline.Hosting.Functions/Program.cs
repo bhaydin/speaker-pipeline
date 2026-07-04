@@ -3,6 +3,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SpeakerPipeline.Agents.Discovery;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
@@ -20,6 +21,7 @@ var host = new HostBuilder()
 
         services.AddScoringAgent(ctx.Configuration);
         services.AddTrackerMaintenanceAgent(ctx.Configuration);
+        services.AddDiscoveryAgent(ctx.Configuration);
 
         services.AddTransient<BearerTokenHandler>();
         services

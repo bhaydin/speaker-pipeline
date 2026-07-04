@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/SpeakerPipeline.Agents.Discovery/SpeakerPipeline.Agents.Discovery.csproj" />
     <Project Path="src/SpeakerPipeline.Agents.Scoring/SpeakerPipeline.Agents.Scoring.csproj" />
     <Project Path="src/SpeakerPipeline.Agents.TrackerMaintenance/SpeakerPipeline.Agents.TrackerMaintenance.csproj" />
     <Project Path="src/SpeakerPipeline.Api/SpeakerPipeline.Api.csproj" />
@@ -13,6 +14,8 @@
     <Project Path="tools/SpeakerPipeline.Migrate/SpeakerPipeline.Migrate.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SpeakerPipeline.Agents.Discovery.Evals/SpeakerPipeline.Agents.Discovery.Evals.csproj" />
+    <Project Path="tests/SpeakerPipeline.Agents.Discovery.Tests/SpeakerPipeline.Agents.Discovery.Tests.csproj" />
     <Project Path="tests/SpeakerPipeline.Agents.Scoring.Evals/SpeakerPipeline.Agents.Scoring.Evals.csproj" />
     <Project Path="tests/SpeakerPipeline.Agents.Scoring.Tests/SpeakerPipeline.Agents.Scoring.Tests.csproj" />
     <Project Path="tests/SpeakerPipeline.Agents.TrackerMaintenance.Tests/SpeakerPipeline.Agents.TrackerMaintenance.Tests.csproj" />
