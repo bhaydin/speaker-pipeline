@@ -31,7 +31,14 @@ az keyvault secret set --vault-name "$VAULT" --name telegram-bot-token      --va
 az keyvault secret set --vault-name "$VAULT" --name telegram-chat-id        --value "$CHAT_ID"        -o none
 az keyvault secret set --vault-name "$VAULT" --name telegram-webhook-secret --value "$WEBHOOK_SECRET" -o none
 
-URL="https://${FUNCTION_APP}.azurewebsites.net/api/telegram/webhook"
+# Resolve the app's real hostname. Azure assigns a unique regional default
+# hostname (e.g. func-...-<hash>.eastus2-01.azurewebsites.net), so the plain
+# "<name>.azurewebsites.net" form does NOT resolve.
+RESOURCE_GROUP="${RESOURCE_GROUP:-rg-speakerpipeline-dev}"
+HOST=$(az functionapp list --query "[?name=='${FUNCTION_APP}'].defaultHostName | [0]" -o tsv)
+: "${HOST:?could not resolve the Function App hostname — check FUNCTION_APP / RESOURCE_GROUP and az login}"
+
+URL="https://${HOST}/api/telegram/webhook"
 echo "2/2  Registering webhook -> ${URL}"
 curl -fsS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   --data-urlencode "url=${URL}" \
