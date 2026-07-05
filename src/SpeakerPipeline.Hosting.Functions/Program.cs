@@ -7,6 +7,7 @@ using SpeakerPipeline.Agents.Discovery;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
+using SpeakerPipeline.Hosting.Functions.Observability;
 using SpeakerPipeline.Notifications;
 using SpeakerPipeline.Telegram;
 
@@ -18,8 +19,10 @@ var host = new HostBuilder()
     })
     .ConfigureServices((ctx, services) =>
     {
-        // Application Insights is auto-wired when APPLICATIONINSIGHTS_CONNECTION_STRING
-        // is set in configuration; no explicit telemetry call needed here.
+        // OpenTelemetry → Azure Monitor. Without this the isolated worker's dependency
+        // telemetry never reached App Insights, leaving the agents blind.
+        // The Telegram bot token is redacted from HTTP spans here (see the extension).
+        services.AddFunctionsObservability(ctx.Configuration, ctx.HostingEnvironment.IsDevelopment());
 
         services.AddScoringAgent(ctx.Configuration);
         services.AddTrackerMaintenanceAgent(ctx.Configuration);

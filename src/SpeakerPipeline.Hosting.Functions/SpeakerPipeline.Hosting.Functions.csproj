@@ -40,6 +40,7 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
