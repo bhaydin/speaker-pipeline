@@ -24,19 +24,19 @@ public class AuthExtensionsTests
     [Fact]
     public void ExpandAudiences_from_guid_adds_api_uri()
     {
-        var result = AuthExtensions.ExpandAudiences("bace4d6a-9ebd-4fac-a152-d1c67d593a41");
+        var result = AuthExtensions.ExpandAudiences("11111111-1111-1111-1111-111111111111");
 
-        Assert.Contains("bace4d6a-9ebd-4fac-a152-d1c67d593a41", result);
-        Assert.Contains("api://bace4d6a-9ebd-4fac-a152-d1c67d593a41", result);
+        Assert.Contains("11111111-1111-1111-1111-111111111111", result);
+        Assert.Contains("api://11111111-1111-1111-1111-111111111111", result);
     }
 
     [Fact]
     public void ExpandAudiences_from_api_uri_adds_bare_guid()
     {
-        var result = AuthExtensions.ExpandAudiences("api://bace4d6a-9ebd-4fac-a152-d1c67d593a41");
+        var result = AuthExtensions.ExpandAudiences("api://11111111-1111-1111-1111-111111111111");
 
-        Assert.Contains("api://bace4d6a-9ebd-4fac-a152-d1c67d593a41", result);
-        Assert.Contains("bace4d6a-9ebd-4fac-a152-d1c67d593a41", result);
+        Assert.Contains("api://11111111-1111-1111-1111-111111111111", result);
+        Assert.Contains("11111111-1111-1111-1111-111111111111", result);
     }
 
     [Theory]
@@ -50,12 +50,12 @@ public class AuthExtensionsTests
     public void ExpandIssuers_from_v2_authority_accepts_both_v1_and_v2()
     {
         var result = AuthExtensions.ExpandIssuers(
-            "https://login.microsoftonline.com/35cd3241-d250-4a26-93c8-ee676440a2b7/v2.0");
+            "https://login.microsoftonline.com/22222222-2222-2222-2222-222222222222/v2.0");
 
         // v2.0 issuer (interactive / v2 tokens)
-        Assert.Contains("https://login.microsoftonline.com/35cd3241-d250-4a26-93c8-ee676440a2b7/v2.0", result);
+        Assert.Contains("https://login.microsoftonline.com/22222222-2222-2222-2222-222222222222/v2.0", result);
         // v1.0 issuer (Managed Identity tokens)
-        Assert.Contains("https://sts.windows.net/35cd3241-d250-4a26-93c8-ee676440a2b7/", result);
+        Assert.Contains("https://sts.windows.net/22222222-2222-2222-2222-222222222222/", result);
     }
 
     [Theory]
