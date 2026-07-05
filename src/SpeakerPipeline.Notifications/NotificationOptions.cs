@@ -29,7 +29,7 @@ public sealed class EmailLaneOptions
     /// <summary>Client secret — Key Vault reference.</summary>
     public string? ClientSecret { get; set; }
 
-    /// <summary>Mailbox to send as, e.g. pipeline@haydin.ai.</summary>
+    /// <summary>Mailbox to send as, e.g. sender@example.com.</summary>
     public string? Sender { get; set; }
 
     /// <summary>Where notifications go.</summary>
