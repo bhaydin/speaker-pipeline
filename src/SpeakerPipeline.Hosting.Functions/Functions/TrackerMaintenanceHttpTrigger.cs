@@ -3,14 +3,16 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using SpeakerPipeline.Agents.TrackerMaintenance;
+using SpeakerPipeline.Notifications;
 
 namespace SpeakerPipeline.Hosting.Functions.Functions;
 
 /// <summary>
 /// Manual ad-hoc trigger for the tracker-maintenance agent. Auth required
-/// (function key). Reconciles Events.Category from submission status on demand.
+/// (function key). Reconciles Events.Category from submission status on demand,
+/// and sends a run-summary notification.
 /// </summary>
-public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent, ILogger<TrackerMaintenanceHttpTrigger> logger)
+public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent, INotifier notifier, ILogger<TrackerMaintenanceHttpTrigger> logger)
 {
     [Function("TrackerMaintenanceHttpTrigger")]
     public async Task<HttpResponseData> Run(
@@ -19,6 +21,7 @@ public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent,
     {
         logger.LogInformation("Tracker-maintenance run starting (manual).");
         var updates = await agent.RunAsync(ct);
+        await TrackerNotification.SendAsync(notifier, updates, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new { count = updates.Count, updates }, ct);
