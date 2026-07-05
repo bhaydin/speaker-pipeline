@@ -178,11 +178,16 @@ public sealed class TelegramCommandRouter(
             return "no deadline";
         }
 
-        var days = (int)Math.Ceiling((d - DateTimeOffset.UtcNow).TotalDays);
+        var now = DateTimeOffset.UtcNow;
         var date = d.ToString("yyyy-MM-dd");
+        if (d < now)
+        {
+            return $"closed {date}";
+        }
+
+        var days = (int)Math.Ceiling((d - now).TotalDays);
         return days switch
         {
-            < 0 => $"closed {date}",
             0 => $"due today ({date})",
             1 => $"1 day ({date})",
             _ => $"{days} days ({date})",
