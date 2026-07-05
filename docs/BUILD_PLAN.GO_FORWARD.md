@@ -7,7 +7,7 @@ _This document is currently `docs/BUILD_PLAN.GO_FORWARD.md` (rename/move to `doc
 
 ## 1. Audit verdict
 
-Milestones 1–2 of BUILD_PLAN.md are **complete**. Milestone 3 is **built but underperforming**. Milestone 5 assets (evals, goldens, OTel, ADRs, CI/CD) are **ahead of schedule**. Milestone 4 (calendars) is **not started, as planned**.
+Milestones 1–2 of `docs/BUILD_PLAN.md` are **complete**. Milestone 3 is **built but underperforming**. Milestone 5 assets (evals, goldens, OTel, ADRs, CI/CD) are **ahead of schedule**. Milestone 4 (calendars) is **not started, as planned**.
 
 The observed symptoms — "not picking up new engagements" and "recommendations don't make sense" — trace to three code-level root causes, not missing capability:
 
