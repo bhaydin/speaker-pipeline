@@ -13,7 +13,8 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// it requires the shared secret Telegram echoes in the
 /// <c>X-Telegram-Bot-Api-Secret-Token</c> header (set at setWebhook time), so the
 /// endpoint isn't actually open. Parses the update, routes it to a pipeline
-/// action, and sends the reply. Always returns 200 so Telegram doesn't retry-storm.
+/// action, and sends the reply. Returns 401 for missing/invalid secrets; otherwise
+/// returns 200 (even on JSON parse failures) so Telegram doesn't retry-storm.
 /// </summary>
 public sealed class TelegramWebhook(
     TelegramCommandRouter router,
