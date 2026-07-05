@@ -1,4 +1,5 @@
 # Speaker Pipeline — Go-Forward Plan (v2)
+
 _Post-audit revision, 2026-07-05. Supersedes the milestone ordering in `docs/BUILD_PLAN.md`; architecture and constraints in that document still apply._
 _Drop in as `docs/GO_FORWARD.md`._
 
@@ -23,6 +24,7 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 ## 2. Phase A — Fix the fuel line  _(priority 1, ~3–4 evenings)_
 
 ### A1. Structured-feed adapter: confs.tech  _(highest signal, zero fragility)_
+
 - New `ConfsTechSource : ISourceAdapter` in `SpeakerPipeline.Agents.Discovery`.
 - Data: raw JSON from GitHub `tech-conferences/conference-data`, path pattern
   `conferences/{year}/{topic}.json`. **Verified live 2026-07-05.** Fields include
@@ -37,6 +39,7 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 - Same reconcile path as today (idempotent, DoNotResurface honored).
 
 ### A2. Manual ingestion lane  _(answers "can I feed it external searches?")_
+
 - **MCP tool** `ingest_event(url, note?)` in a new `EventTools.cs`:
   1. Fetch URL via existing `WatchlistSource` fetch/normalize path.
   2. Run existing LLM extraction with a **lower floor (2)** — a human vouched for it.
@@ -46,11 +49,13 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 - Usage pattern this unlocks: any Claude/ChatGPT research session ("find me AI CFPs closing this month") ends with the assistant calling `ingest_event` per keeper. External research becomes pipeline state instead of chat scrollback.
 
 ### A3. Funnel visibility  _(kill the silent drops)_
+
 - Extend `DiscoveryResult`/digest to a per-run funnel: `targets → fetched → extracted → passedFloor → new/updated`, with per-drop reason codes (`fetch_failed`, `not_event`, `low_confidence:N`, `do_not_resurface`, `unchanged`).
 - **Quarantine tier:** candidates scoring `floor-2 .. floor-1` are written with `DecisionCategory=Quarantine` instead of dropped. Weekly digest lists them; Telegram `/promote <slug>` re-runs extraction at low floor and sends to scoring.
 - Digest gains one line: token + search-query spend for the run (cost lever visibility).
 
 ### A4. Search & extraction tuning
+
 - PSE queries: add `dateRestrict=m2` via `SearchOptions`; retire the three pure-snippet (non-`site:`) queries; add 2–3 aggregator-targeted queries (e.g. `site:sessionize.com inurl:cfs "2026"`).
 - `Normalize()`: prefer `<main>`/`<article>` content when present before whole-page strip; raise cap 12K → 24K chars (still cheap on a nano-class model).
 - Keep one-attempt/no-retry degradation posture — unchanged.
@@ -62,6 +67,7 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 ## 3. Phase B — Make recommendations make sense  _(~2 evenings)_
 
 ### B1. Pipeline context in the scoring prompt
+
 - Extend `BuildUserPrompt(event, talks, context)` with a `PipelineContext` block:
   - Committed engagements within ±8 weeks of the candidate (name, dates, EffortClass).
   - Blackout ranges within ±4 weeks.
@@ -71,10 +77,12 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 - **Update goldens** in `SpeakerPipeline.Agents.Scoring.Evals` to include context blocks — the eval suite is the safety net for this prompt change; treat a goldens diff as part of the PR.
 
 ### B2. Re-score triggers
+
 - Tracker-maintenance timer re-queues scoring when: CFP deadline enters 14-day window; event fields materially change; a new Blackout overlaps a `SubmitNow`/`Monitor` event.
 - Scoring digest distinguishes **new verdicts** from **changed verdicts** (verdict flips are the interesting signal).
 
 ### B3. Deadline urgency wiring
+
 - Urgent notification path (already present in `NotificationPolicy`) fires on: `SubmitNow` + deadline <7 days. Confirm policy covers verdict-flip-to-SubmitNow.
 
 **Phase B exit test:** a synthetic event colliding with a committed engagement scores `Pass/Monitor` with a rationale naming the conflict; the same event with a clear calendar scores `SubmitNow`. Both as eval goldens.
@@ -91,6 +99,7 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 ---
 
 ## 5. Phase D — Polish & optional lanes
+
 - Azure Monitor workbook: scan health, funnel trends, token/search spend, decision distribution.
 - Quarantine review UX improvements based on real use.
 - TeamsLane (Haydin.ai) after domain migration; OpenClaw/local surface as Phase-2 demo.
@@ -109,7 +118,8 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 ## 7. Claude Code kickoff prompts (one per phase)
 
 Phase A:
-```
+
+```text
 Read docs/GO_FORWARD.md Phase A and docs/BUILD_PLAN.md constraints. We are
 building A1–A4 only. Before code: give me the commit plan, the new
 ISourceAdapter surface for ConfsTechSource, the ingest endpoint contract, and
@@ -118,7 +128,8 @@ ExtractedEvent — no LLM call for that source. Stop after the plan.
 ```
 
 Phase B:
-```
+
+```text
 Read docs/GO_FORWARD.md Phase B. We are adding PipelineContext to scoring.
 Before code: show the PipelineContext record, the BuildUserPrompt change, the
 /pipeline/context endpoint, and the goldens you will add/modify in
