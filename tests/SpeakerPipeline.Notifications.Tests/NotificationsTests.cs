@@ -10,8 +10,13 @@ public class NotificationsTests
     // --- DiscoveryDigest -----------------------------------------------------
 
     [Fact]
-    public void DiscoveryDigest_empty_returns_null()
-        => Assert.Null(DiscoveryDigest.Build([]));
+    public void DiscoveryDigest_empty_returns_nothing_new_heartbeat()
+    {
+        var n = DiscoveryDigest.Build([]);
+
+        Assert.Contains("nothing new", n.Subject);
+        Assert.Contains("No new or changed events", n.HtmlBody);
+    }
 
     [Fact]
     public void DiscoveryDigest_summarizes_new_and_updated()
