@@ -63,17 +63,24 @@ public sealed class Notifier(
 
         foreach (var channel in delivered)
         {
-            await api.LogNotificationAsync(new NotificationLogRecord
+            try
             {
-                Period = period,
-                NotificationId = Guid.NewGuid().ToString("n"),
-                Channel = channel,
-                Urgency = notification.Urgency,
-                SentUtc = now,
-                DedupeKey = notification.DedupeKey ?? string.Empty,
-                EntityRef = notification.EntityRef,
-                Summary = notification.Subject,
-            }, ct);
+                await api.LogNotificationAsync(new NotificationLogRecord
+                {
+                    Period = period,
+                    NotificationId = Guid.NewGuid().ToString("n"),
+                    Channel = channel,
+                    Urgency = notification.Urgency,
+                    SentUtc = now,
+                    DedupeKey = notification.DedupeKey ?? string.Empty,
+                    EntityRef = notification.EntityRef,
+                    Summary = notification.Subject,
+                }, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Notify: failed to log notification for {Channel}.", channel);
+            }
         }
     }
 }
