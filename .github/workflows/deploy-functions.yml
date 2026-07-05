@@ -8,7 +8,7 @@ on:
       - 'src/SpeakerPipeline.Hosting.Functions/**'
       - 'src/SpeakerPipeline.Agents.Scoring/**'
       - 'src/SpeakerPipeline.Core/**'
-      - 'infra/functions.dev.settings.json'
+      - 'infra/functions.settings.json'
       - '.github/workflows/deploy-functions.yml'
   workflow_dispatch:
  
@@ -66,18 +66,41 @@ jobs:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
-      # Scoring agent runtime config (Foundry endpoint/model, MI selection, API
-      # client). Applied additively — `az ... appsettings set` merges rather than
-      # replaces, so the host's AzureWebJobsStorage / App Insights settings are
-      # preserved. This lives here, not in Bicep, because ARM cannot read and
-      # write the same appsettings resource in one deployment (circular); the
-      # fully declarative home is the func app's Bicep model in the reconciliation.
-      - name: Configure scoring app settings
+      # Runtime config, applied additively (az ... set merges, preserving the
+      # host's AzureWebJobsStorage / App Insights settings). Split in two:
+      #   1. Non-sensitive settings from the committed file (providers, models,
+      #      search queries, feature flags).
+      #   2. Env-specific identifiers from GitHub Secrets — never committed to
+      #      this public repo. Key Vault refs are built from the KEYVAULT_URI
+      #      secret so the vault name isn't in the repo either.
+      # This lives here, not in Bicep, because ARM cannot read and write the same
+      # appsettings resource in one deployment (circular).
+      - name: Configure app settings (non-sensitive)
         run: |
           az functionapp config appsettings set \
             -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" \
-            --settings @infra/functions.dev.settings.json \
+            --settings @infra/functions.settings.json \
             --output none
+
+      - name: Configure app settings (from secrets)
+        env:
+          KV: ${{ secrets.KEYVAULT_URI }}
+        run: |
+          az functionapp config appsettings set \
+            -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --output none \
+            --settings \
+              AZURE_CLIENT_ID="${{ secrets.FUNCTIONS_MI_CLIENT_ID }}" \
+              ScoringAgent__Endpoint="${{ secrets.FOUNDRY_ENDPOINT }}" \
+              Discovery__Endpoint="${{ secrets.FOUNDRY_ENDPOINT }}" \
+              SpeakerPipelineApi__BaseUrl="${{ secrets.API_BASE_URL }}" \
+              SpeakerPipelineApi__Scope="${{ secrets.API_SCOPE }}" \
+              Notifications__Email__TenantId="${{ secrets.NOTIFY_TENANT_ID }}" \
+              Notifications__Email__ClientId="${{ secrets.NOTIFY_CLIENT_ID }}" \
+              Search__ApiKey="@Microsoft.KeyVault(SecretUri=${KV}/secrets/search-google-apikey)" \
+              Search__Cx="@Microsoft.KeyVault(SecretUri=${KV}/secrets/search-google-cx)" \
+              Notifications__Email__ClientSecret="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-clientsecret)" \
+              Notifications__Email__Sender="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-sender)" \
+              Notifications__Email__Recipient="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-recipient)"
 
       # A deployed package can still register zero functions if the host fails to
       # start or index. Poll until both expected functions show up, and fail the
