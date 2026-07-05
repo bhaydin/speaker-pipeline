@@ -11,7 +11,7 @@ namespace SpeakerPipeline.Hosting.Functions.Observability;
 /// <summary>
 /// OpenTelemetry wiring for the Functions host — the equivalent of the API's
 /// observability, which this host had been missing (so its agents were invisible
-/// in App Insights). Traces + logs export to Azure Monitor when a connection
+/// in App Insights). Traces export to Azure Monitor when a connection
 /// string is present, and to the console in development.
 /// </summary>
 public static class FunctionsObservabilityExtensions
