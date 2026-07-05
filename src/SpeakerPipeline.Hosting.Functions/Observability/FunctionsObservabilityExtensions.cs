@@ -60,9 +60,9 @@ public static class FunctionsObservabilityExtensions
                 }
             });
 
-        // Azure Monitor export covers traces AND ILogger logs (the distro wires
-        // the OpenTelemetry logging provider). In dev, the Functions host's
-        // default console logging already surfaces the same logs.
+        // Azure Monitor export covers traces. In development, the console exporter is
+        // enabled above for tracing; the Functions host's default console logging
+        // remains unchanged.
         if (!string.IsNullOrWhiteSpace(aiConnection))
         {
             otel.UseAzureMonitor(o => o.ConnectionString = aiConnection);
