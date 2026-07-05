@@ -1,7 +1,7 @@
 # Speaker Pipeline — Go-Forward Plan (v2)
 
 _Post-audit revision, 2026-07-05. Supersedes the milestone ordering in `docs/BUILD_PLAN.md`; architecture and constraints in that document still apply._
-_Drop in as `docs/GO_FORWARD.md`._
+_This document is currently `docs/BUILD_PLAN.GO_FORWARD.md` (rename/move to `docs/GO_FORWARD.md` if you want it to be canonical)._
 
 ---
 
