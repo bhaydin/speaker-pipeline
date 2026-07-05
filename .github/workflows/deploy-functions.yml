@@ -85,17 +85,32 @@ jobs:
       - name: Configure app settings (from secrets)
         env:
           KV: ${{ secrets.KEYVAULT_URI }}
+          FUNCTIONS_MI_CLIENT_ID: ${{ secrets.FUNCTIONS_MI_CLIENT_ID }}
+          FOUNDRY_ENDPOINT: ${{ secrets.FOUNDRY_ENDPOINT }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          API_SCOPE: ${{ secrets.API_SCOPE }}
+          NOTIFY_TENANT_ID: ${{ secrets.NOTIFY_TENANT_ID }}
+          NOTIFY_CLIENT_ID: ${{ secrets.NOTIFY_CLIENT_ID }}
         run: |
+          set -euo pipefail
+          required=(KV FUNCTIONS_MI_CLIENT_ID FOUNDRY_ENDPOINT API_BASE_URL API_SCOPE NOTIFY_TENANT_ID NOTIFY_CLIENT_ID)
+          for v in "${required[@]}"; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required GitHub Secret: ${v}"
+              exit 1
+            fi
+          done
+
           az functionapp config appsettings set \
             -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --output none \
             --settings \
-              AZURE_CLIENT_ID="${{ secrets.FUNCTIONS_MI_CLIENT_ID }}" \
-              ScoringAgent__Endpoint="${{ secrets.FOUNDRY_ENDPOINT }}" \
-              Discovery__Endpoint="${{ secrets.FOUNDRY_ENDPOINT }}" \
-              SpeakerPipelineApi__BaseUrl="${{ secrets.API_BASE_URL }}" \
-              SpeakerPipelineApi__Scope="${{ secrets.API_SCOPE }}" \
-              Notifications__Email__TenantId="${{ secrets.NOTIFY_TENANT_ID }}" \
-              Notifications__Email__ClientId="${{ secrets.NOTIFY_CLIENT_ID }}" \
+              AZURE_CLIENT_ID="$FUNCTIONS_MI_CLIENT_ID" \
+              ScoringAgent__Endpoint="$FOUNDRY_ENDPOINT" \
+              Discovery__Endpoint="$FOUNDRY_ENDPOINT" \
+              SpeakerPipelineApi__BaseUrl="$API_BASE_URL" \
+              SpeakerPipelineApi__Scope="$API_SCOPE" \
+              Notifications__Email__TenantId="$NOTIFY_TENANT_ID" \
+              Notifications__Email__ClientId="$NOTIFY_CLIENT_ID" \
               Search__ApiKey="@Microsoft.KeyVault(SecretUri=${KV}/secrets/search-google-apikey)" \
               Search__Cx="@Microsoft.KeyVault(SecretUri=${KV}/secrets/search-google-cx)" \
               Notifications__Email__ClientSecret="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-clientsecret)" \
