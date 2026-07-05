@@ -47,14 +47,15 @@ public class NotificationsTests
     {
         var n = new Notification { Subject = "Subj", HtmlBody = "<p>Hi</p>" };
 
-        var json = EmailLane.BuildSendMailPayload(n, "brian@haydin.ai");
+        var recipient = "recipient@example.com";
+        var json = EmailLane.BuildSendMailPayload(n, recipient);
         using var doc = JsonDocument.Parse(json);
         var message = doc.RootElement.GetProperty("message");
 
         Assert.Equal("Subj", message.GetProperty("subject").GetString());
         Assert.Equal("HTML", message.GetProperty("body").GetProperty("contentType").GetString());
         Assert.Equal("<p>Hi</p>", message.GetProperty("body").GetProperty("content").GetString());
-        Assert.Equal("brian@haydin.ai",
+        Assert.Equal(recipient,
             message.GetProperty("toRecipients")[0].GetProperty("emailAddress").GetProperty("address").GetString());
         Assert.True(doc.RootElement.GetProperty("saveToSentItems").GetBoolean());
     }
