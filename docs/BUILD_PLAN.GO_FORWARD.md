@@ -130,7 +130,7 @@ ExtractedEvent — no LLM call for that source. Stop after the plan.
 Phase B:
 
 ```text
-Read docs/GO_FORWARD.md Phase B. We are adding PipelineContext to scoring.
+Read docs/BUILD_PLAN.GO_FORWARD.md Phase B. We are adding PipelineContext to scoring.
 Before code: show the PipelineContext record, the BuildUserPrompt change, the
 /pipeline/context endpoint, and the goldens you will add/modify in
 SpeakerPipeline.Agents.Scoring.Evals. Goldens diff ships in the same PR.
