@@ -37,6 +37,13 @@ public sealed class TelegramWebhook(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "telegram/webhook")] HttpRequestData request,
         CancellationToken ct)
     {
+        // Kill switch: when Telegram is disabled, ignore updates but return 200 so Telegram doesn't retry.
+        if (!_options.Enabled)
+        {
+            logger.LogInformation("Telegram webhook: Telegram is disabled; ignoring update.");
+            return request.CreateResponse(HttpStatusCode.OK);
+        }
+
         // Fail closed: with no configured secret we cannot trust any caller.
         if (string.IsNullOrEmpty(_options.WebhookSecret))
         {
