@@ -19,8 +19,8 @@ var host = new HostBuilder()
     })
     .ConfigureServices((ctx, services) =>
     {
-        // OpenTelemetry → Azure Monitor. Without this the isolated worker's logs
-        // and dependencies never reached App Insights, leaving the agents blind.
+        // OpenTelemetry → Azure Monitor. Without this the isolated worker's dependency
+        // telemetry never reached App Insights, leaving the agents blind.
         // The Telegram bot token is redacted from HTTP spans here (see the extension).
         services.AddFunctionsObservability(ctx.Configuration, ctx.HostingEnvironment.IsDevelopment());
 
