@@ -28,5 +28,12 @@
   "Search__Queries__6": "site:sessionize.com \"AI\" \"Call for Speakers\" \"United States\"",
   "Search__Queries__7": "\"Call for Speakers\" \"Azure AI\" \"Sessionize\"",
   "Search__Queries__8": "\"Call for Speakers\" \"Microsoft Fabric\" \"Sessionize\"",
-  "Search__Queries__9": "\"Call for Speakers\" \"Copilot\" \"Sessionize\""
+  "Search__Queries__9": "\"Call for Speakers\" \"Copilot\" \"Sessionize\"",
+
+  "Notifications__Email__Enabled": "true",
+  "Notifications__Email__TenantId": "a2320075-2584-42a3-8407-3c1c10a25147",
+  "Notifications__Email__ClientId": "37598521-46b2-434b-b327-7d797b78bc20",
+  "Notifications__Email__ClientSecret": "@Microsoft.KeyVault(SecretUri=https://kv-speakerpipeline.vault.azure.net/secrets/notify-graph-clientsecret)",
+  "Notifications__Email__Sender": "@Microsoft.KeyVault(SecretUri=https://kv-speakerpipeline.vault.azure.net/secrets/notify-graph-sender)",
+  "Notifications__Email__Recipient": "@Microsoft.KeyVault(SecretUri=https://kv-speakerpipeline.vault.azure.net/secrets/notify-graph-recipient)"
 }
