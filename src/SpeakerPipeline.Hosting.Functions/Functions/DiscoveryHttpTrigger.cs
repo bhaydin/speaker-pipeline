@@ -3,14 +3,16 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using SpeakerPipeline.Agents.Discovery;
+using SpeakerPipeline.Notifications;
 
 namespace SpeakerPipeline.Hosting.Functions.Functions;
 
 /// <summary>
 /// Manual ad-hoc trigger for the discovery agent. Auth required (function key).
-/// Fetches the watchlist, extracts events, and reconciles them into the tracker.
+/// Fetches the watchlist, extracts events, reconciles them into the tracker, and
+/// emails a summary of what changed.
 /// </summary>
-public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, ILogger<DiscoveryHttpTrigger> logger)
+public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, INotifier notifier, ILogger<DiscoveryHttpTrigger> logger)
 {
     [Function("DiscoveryHttpTrigger")]
     public async Task<HttpResponseData> Run(
@@ -19,6 +21,7 @@ public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, ILogger<Discovery
     {
         logger.LogInformation("Discovery run starting (manual).");
         var results = await agent.RunAsync(ct);
+        await DiscoveryNotification.SendAsync(notifier, results, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new { count = results.Count, results }, ct);

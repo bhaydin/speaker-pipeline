@@ -46,6 +46,7 @@ app.MapScoringApi();
 app.MapTopicsApi();
 app.MapBlackoutsApi();
 app.MapPipelineApi();
+app.MapNotificationsApi();
 
 app.Run();
 
