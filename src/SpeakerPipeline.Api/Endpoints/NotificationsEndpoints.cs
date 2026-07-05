@@ -28,7 +28,14 @@ public static class NotificationsEndpoints
     }
 
     private static async Task<IResult> GetForPeriod(INotificationLogRepository log, string period, CancellationToken ct)
-        => Results.Ok(await log.GetForPeriodAsync(period, ct));
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(period, "^\\d{4}-\\d{2}$"))
+        {
+            return Results.Problem($"Invalid period value: '{period}'. Expected yyyy-MM.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        return Results.Ok(await log.GetForPeriodAsync(period, ct));
+    }
 
     private static async Task<IResult> PostNotification(NotificationLogRecord record, INotificationLogRepository log, CancellationToken ct)
     {
