@@ -30,7 +30,13 @@ public sealed class TelegramCommandRouter(
         }
 
         // Authorization: only the configured chat may drive the pipeline.
-        if (_options.ChatId != 0 && chat.Id != _options.ChatId)
+        if (!_options.Enabled || _options.ChatId == 0)
+        {
+            logger.LogWarning("Telegram: rejecting message because Telegram is disabled or ChatId is not configured.");
+            return new TelegramReply(chat.Id, "Not authorized.");
+        }
+
+        if (chat.Id != _options.ChatId)
         {
             logger.LogWarning("Telegram: ignoring message from unauthorized chat {ChatId}.", chat.Id);
             return new TelegramReply(chat.Id, "Not authorized.");
