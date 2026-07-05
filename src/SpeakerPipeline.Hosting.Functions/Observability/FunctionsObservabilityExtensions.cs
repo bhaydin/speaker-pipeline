@@ -34,8 +34,11 @@ public static class FunctionsObservabilityExtensions
         // enrichment regardless of who registers the HTTP-client instrumentation.
         services.Configure<HttpClientTraceInstrumentationOptions>(options =>
         {
+            var previous = options.EnrichWithHttpRequestMessage;
             options.EnrichWithHttpRequestMessage = (activity, request) =>
             {
+                previous?.Invoke(activity, request);
+
                 if (request.RequestUri?.Host == "api.telegram.org")
                 {
                     var redacted = TelegramTokenRedactor.Redact(request.RequestUri.AbsoluteUri);
