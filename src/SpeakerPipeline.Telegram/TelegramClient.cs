@@ -51,6 +51,6 @@ public sealed class TelegramClient(
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             logger.LogError("Telegram send failed: {Status} {Body}", (int)response.StatusCode, body);
+            response.EnsureSuccessStatusCode();
         }
-    }
 }
