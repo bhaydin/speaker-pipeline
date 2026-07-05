@@ -8,6 +8,13 @@ public sealed class NotificationOptions
     public const string SectionName = "Notifications";
 
     public EmailLaneOptions Email { get; set; } = new();
+
+    /// <summary>
+    /// When true, a <b>scheduled</b> (timer) run that changed nothing sends no
+    /// notification — cutting the daily "nothing new" heartbeat noise. Manual
+    /// (HTTP) runs always confirm regardless. Default false (every run notifies).
+    /// </summary>
+    public bool SuppressEmptyScheduledRuns { get; set; }
 }
 
 /// <summary>

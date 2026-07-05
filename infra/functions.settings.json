@@ -26,6 +26,7 @@
   "Search__Queries__9": "\"Call for Speakers\" \"Copilot\" \"Sessionize\"",
 
   "Notifications__Email__Enabled": "true",
+  "Notifications__SuppressEmptyScheduledRuns": "false",
 
   "Telegram__Enabled": "true"
 }
