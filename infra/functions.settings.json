@@ -25,5 +25,7 @@
   "Search__Queries__8": "\"Call for Speakers\" \"Microsoft Fabric\" \"Sessionize\"",
   "Search__Queries__9": "\"Call for Speakers\" \"Copilot\" \"Sessionize\"",
 
-  "Notifications__Email__Enabled": "true"
+  "Notifications__Email__Enabled": "true",
+
+  "Telegram__Enabled": "true"
 }

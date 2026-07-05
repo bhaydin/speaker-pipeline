@@ -8,6 +8,7 @@ using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
 using SpeakerPipeline.Notifications;
+using SpeakerPipeline.Telegram;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
@@ -24,6 +25,7 @@ var host = new HostBuilder()
         services.AddTrackerMaintenanceAgent(ctx.Configuration);
         services.AddDiscoveryAgent(ctx.Configuration);
         services.AddNotifications(ctx.Configuration);
+        services.AddTelegram(ctx.Configuration);
 
         services.AddTransient<BearerTokenHandler>();
         services

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Notifications\SpeakerPipeline.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Telegram\SpeakerPipeline.Telegram.csproj" />
+  </ItemGroup>
+
+</Project>

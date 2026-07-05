@@ -115,7 +115,10 @@ jobs:
               Search__Cx="@Microsoft.KeyVault(SecretUri=${KV}/secrets/search-google-cx)" \
               Notifications__Email__ClientSecret="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-clientsecret)" \
               Notifications__Email__Sender="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-sender)" \
-              Notifications__Email__Recipient="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-recipient)"
+              Notifications__Email__Recipient="@Microsoft.KeyVault(SecretUri=${KV}/secrets/notify-graph-recipient)" \
+              Telegram__BotToken="@Microsoft.KeyVault(SecretUri=${KV}/secrets/telegram-bot-token)" \
+              Telegram__ChatId="@Microsoft.KeyVault(SecretUri=${KV}/secrets/telegram-chat-id)" \
+              Telegram__WebhookSecret="@Microsoft.KeyVault(SecretUri=${KV}/secrets/telegram-webhook-secret)"
 
       # A deployed package can still register zero functions if the host fails to
       # start or index. Poll until both expected functions show up, and fail the
@@ -132,12 +135,13 @@ jobs:
               && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceHttpTrigger$" \
               && echo "$names" | grep -Eq "(^|/)TrackerMaintenanceTimerTrigger$" \
               && echo "$names" | grep -Eq "(^|/)DiscoveryHttpTrigger$" \
-              && echo "$names" | grep -Eq "(^|/)DiscoveryTimerTrigger$"; then
+              && echo "$names" | grep -Eq "(^|/)DiscoveryTimerTrigger$" \
+              && echo "$names" | grep -Eq "(^|/)TelegramWebhook$"; then
               exit 0
             fi
             sleep 15
           done
-          echo "::error::Expected functions (ScoringAgent, TrackerMaintenance, Discovery {Http,Timer}Trigger) not registered after deploy."
+          echo "::error::Expected functions (ScoringAgent, TrackerMaintenance, Discovery {Http,Timer}Trigger, TelegramWebhook) not registered after deploy."
           exit 1
 
       - name: Azure logout
