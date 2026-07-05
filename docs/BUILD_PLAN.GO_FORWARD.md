@@ -120,7 +120,7 @@ The observed symptoms — "not picking up new engagements" and "recommendations 
 Phase A:
 
 ```text
-Read docs/GO_FORWARD.md Phase A and docs/BUILD_PLAN.md constraints. We are
+Read docs/BUILD_PLAN.GO_FORWARD.md Phase A and docs/BUILD_PLAN.md constraints. We are
 building A1–A4 only. Before code: give me the commit plan, the new
 ISourceAdapter surface for ConfsTechSource, the ingest endpoint contract, and
 the funnel/quarantine model changes. Note: confs.tech JSON maps straight to
