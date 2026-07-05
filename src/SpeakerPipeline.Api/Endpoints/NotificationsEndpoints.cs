@@ -20,7 +20,9 @@ public static class NotificationsEndpoints
         group.MapGet("{period}", GetForPeriod).WithName("GetNotificationsForPeriod");
 
         // Record a sent notification (idempotent on Period + NotificationId).
-        group.MapPost("", PostNotification).WithName("LogNotification");
+        group.MapPost("", PostNotification)
+            .AddEndpointFilter<SpeakerPipeline.Api.Validation.ValidationFilter<NotificationLogRecord>>()
+            .WithName("LogNotification");
 
         return routes;
     }
