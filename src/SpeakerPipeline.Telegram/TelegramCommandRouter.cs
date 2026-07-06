@@ -140,9 +140,10 @@ public sealed class TelegramCommandRouter(
         }
 
         // First whitespace-delimited token is the URL; the remainder is an optional note.
-        var space = argument.IndexOf(' ', StringComparison.Ordinal);
-        var url = space < 0 ? argument.Trim() : argument[..space].Trim();
-        var note = space < 0 ? null : argument[(space + 1)..].Trim();
+        var split = argument.IndexOfAny(new[] { ' ', '\t', '\r', '\n' });
+        var url = split < 0 ? argument.Trim() : argument[..split].Trim();
+        var note = split < 0 ? null : argument[(split + 1)..].Trim();
+        note = string.IsNullOrWhiteSpace(note) ? null : note;
 
         try
         {
