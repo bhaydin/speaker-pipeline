@@ -57,7 +57,7 @@ az role assignment create \
 | `RowKey` | string | ✅ | Slug |
 | `Name` | string | ✅ | Display name |
 | `EventType` | string | ✅ | `Conference` / `CodeCamp` / `UserGroup` / `CommunityChapter` / `Workshop` / `Virtual` |
-| `Category` | string | ✅ | `Delivered` / `Accepted` / `SubmitNow` / `Submitted` / `Outreach` / `Monitor` / `Pass` / `Skip` |
+| `Category` | string | ✅ | `Delivered` / `Accepted` / `SubmitNow` / `Submitted` / `Outreach` / `Monitor` / `Quarantine` / `Pass` / `Skip`. `Quarantine` holds sub-floor discovery candidates for review; it is **not** a scoring candidate until promoted to `Monitor`. |
 | `Priority` | string | ✅ | `Committed` / `High` / `MediumHigh` / `Medium` / `Low` / `NA` |
 | `FocusFit` | string |  | Comma-separated lane tags: `AgentOps`, `HybridAgents`, `M365Governance`, `PracticalEnterpriseAI`, `DataFabric` |
 | `StatusDetail` | string |  | Free text status nuance |

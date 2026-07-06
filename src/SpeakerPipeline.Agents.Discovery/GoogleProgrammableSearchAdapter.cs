@@ -41,6 +41,11 @@ public sealed class GoogleProgrammableSearchAdapter(
                   $"&cx={Uri.EscapeDataString(_options.Cx)}" +
                   $"&q={Uri.EscapeDataString(query)}&num={num}";
 
+        if (!string.IsNullOrWhiteSpace(_options.DateRestrict))
+        {
+            url += $"&dateRestrict={Uri.EscapeDataString(_options.DateRestrict)}";
+        }
+
         try
         {
             using var resp = await http.GetAsync(url, ct);

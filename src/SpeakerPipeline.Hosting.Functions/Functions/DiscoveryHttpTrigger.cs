@@ -20,11 +20,13 @@ public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, INotifier notifie
         CancellationToken ct)
     {
         logger.LogInformation("Discovery run starting (manual).");
-        var results = await agent.RunAsync(ct);
-        await DiscoveryNotification.SendAsync(notifier, results, ct);
+        var report = await agent.RunAsync(ct);
+        await DiscoveryNotification.SendAsync(notifier, report, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(new { count = results.Count, results }, ct);
+        await response.WriteAsJsonAsync(
+            new { changed = report.Changed.Count, quarantined = report.Quarantined.Count, report.Funnel, report.Changed, report.Quarantined },
+            ct);
         return response;
     }
 }

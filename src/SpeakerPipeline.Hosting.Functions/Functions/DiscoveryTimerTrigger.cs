@@ -22,12 +22,15 @@ public sealed class DiscoveryTimerTrigger(
     public async Task Run([TimerTrigger("0 0 5 * * *")] TimerInfo timer, CancellationToken ct)
     {
         logger.LogInformation("Discovery run starting (scheduled). Next: {Next}", timer.ScheduleStatus?.Next);
-        var results = await agent.RunAsync(ct);
-        logger.LogInformation("Discovery run complete. Events changed: {Count}", results.Count);
+        var report = await agent.RunAsync(ct);
+        logger.LogInformation("Discovery run complete. Changed: {Changed}, quarantined: {Quarantined}",
+            report.Changed.Count, report.Quarantined.Count);
 
-        if (NotificationPolicy.ShouldNotify(results.Count, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
+        // A quarantined candidate is a review item, so it counts toward "worth notifying".
+        var actionable = report.Changed.Count + report.Quarantined.Count;
+        if (NotificationPolicy.ShouldNotify(actionable, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
         {
-            await DiscoveryNotification.SendAsync(notifier, results, ct);
+            await DiscoveryNotification.SendAsync(notifier, report, ct);
         }
     }
 }

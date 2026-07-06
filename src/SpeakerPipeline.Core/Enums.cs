@@ -18,6 +18,13 @@ public enum EventCategory
     Submitted,
     Outreach,
     Monitor,
+
+    /// <summary>
+    /// A sub-floor discovery candidate (confidence just under the extraction
+    /// floor) held for human review instead of silently dropped. Not a scoring
+    /// candidate until promoted to <see cref="Monitor"/>.
+    /// </summary>
+    Quarantine,
     Pass,
     Skip,
 }
@@ -93,6 +100,12 @@ public enum SourceSeenOn
     CfpNinja,
     Meetup,
     GlobalAI,
+
+    /// <summary>
+    /// The confs.tech community dataset (tech-conferences/conference-data). A
+    /// structured feed — trusted above raw aggregators, below the official page.
+    /// </summary>
+    ConfsTech,
     Direct,
     Manual,
 }

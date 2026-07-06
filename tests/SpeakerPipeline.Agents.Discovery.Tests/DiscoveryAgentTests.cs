@@ -91,6 +91,32 @@ public class DiscoveryAgentTests
         Assert.Null(upsert); // nothing to write — the known Open/Duluth values stand
     }
 
+    [Fact]
+    public void Reconcile_writes_new_event_under_requested_category()
+    {
+        var extracted = new ExtractedEvent
+        {
+            IsEvent = true, EventName = "Maybe Conf 2027", CfpStatus = CfpStatus.Open, Confidence = 3,
+        };
+
+        var (upsert, _, isNew) = DiscoveryAgent.Reconcile(
+            existing: null, extracted, "maybe-conf-2027", SourceSeenOn.Sessionize, Now, Agent,
+            newCategory: EventCategory.Quarantine);
+
+        Assert.True(isNew);
+        Assert.NotNull(upsert);
+        Assert.Equal(EventCategory.Quarantine, upsert!.Category); // held for review, not a scoring candidate
+    }
+
+    // --- ClassifyDrop --------------------------------------------------------
+
+    [Theory]
+    [InlineData("skipped: do-not-resurface", "do_not_resurface")]
+    [InlineData("skipped: cfp closed", "cfp_closed")]
+    [InlineData("no change", "unchanged")]
+    public void ClassifyDrop_maps_reconcile_summaries_to_reason_codes(string summary, string expected)
+        => Assert.Equal(expected, DiscoveryAgent.ClassifyDrop(summary));
+
     // --- Slugify -------------------------------------------------------------
 
     [Theory]
@@ -143,6 +169,37 @@ public class DiscoveryAgentTests
         Assert.DoesNotContain("<", text);
         Assert.Contains("Contoso", text);
         Assert.Contains("Submit & win", text);
+    }
+
+    [Fact]
+    public void Normalize_prefers_main_region_over_chrome()
+    {
+        var html = "<html><body><nav>Home About <a>Sponsors</a></nav>" +
+                   "<main><h1>Contoso Conf</h1><p>CFP closes June 1</p></main>" +
+                   "<footer>Cookie banner accept all</footer></body></html>";
+
+        var text = WatchlistSource.Normalize(html);
+
+        Assert.Contains("Contoso Conf", text);
+        Assert.Contains("CFP closes June 1", text);
+        Assert.DoesNotContain("Cookie banner", text);   // footer chrome dropped
+        Assert.DoesNotContain("Sponsors", text);         // nav chrome dropped
+    }
+
+    [Fact]
+    public void Normalize_falls_back_to_whole_page_without_landmarks()
+    {
+        var html = "<html><body><div><h1>Northwoods Summit</h1></div></body></html>";
+
+        Assert.Contains("Northwoods Summit", WatchlistSource.Normalize(html));
+    }
+
+    [Fact]
+    public void Normalize_caps_length_at_24k()
+    {
+        var html = "<main>" + new string('x', 40_000) + "</main>";
+
+        Assert.Equal(24_000, WatchlistSource.Normalize(html).Length);
     }
 
     private static EventRecord Event(string slug, EventCategory category) => new()

@@ -27,6 +27,13 @@ public sealed class SearchOptions
 
     public int MaxQueriesPerRun { get; set; } = 10;
 
+    /// <summary>
+    /// Google PSE <c>dateRestrict</c> — biases results to recently-indexed pages
+    /// so open CFPs beat stale/closed ones (e.g. <c>d7</c>, <c>w2</c>, <c>m2</c>,
+    /// <c>y1</c>). Null or empty disables the restriction.
+    /// </summary>
+    public string? DateRestrict { get; set; } = "m2";
+
     /// <summary>Extraction-confidence floor for search candidates (0–1); higher than the watchlist since search is noisier.</summary>
     public double MinCandidateConfidence { get; set; } = 0.65;
 

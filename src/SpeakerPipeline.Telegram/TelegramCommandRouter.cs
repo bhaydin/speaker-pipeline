@@ -12,6 +12,7 @@ namespace SpeakerPipeline.Telegram;
 /// </summary>
 public sealed class TelegramCommandRouter(
     ISpeakerPipelineApiClient api,
+    IEventIngestService ingest,
     IOptions<TelegramOptions> options,
     ILogger<TelegramCommandRouter> logger)
 {
@@ -50,6 +51,8 @@ public sealed class TelegramCommandRouter(
             "/start" or "/help" => HelpText,
             "/status" => await StatusAsync(ct),
             "/topic" => await AddTopicAsync(argument, ct),
+            "/track" => await TrackAsync(argument, ct),
+            "/promote" => await PromoteAsync(argument, ct),
             "/approve" => await ApplyAsync(argument, PipelineAction.Intend, "Intent to submit — via Telegram", ct),
             "/pass" => await ApplyAsync(argument, PipelineAction.Skip, "Passed — via Telegram", ct),
             _ => $"Unknown command <code>{TelegramText.Escape(command)}</code>.\n\n{HelpText}",
@@ -129,6 +132,59 @@ public sealed class TelegramCommandRouter(
         return $"✅ Topic queued: \"{TelegramText.Escape(argument.Trim())}\"\n<code>{slug}</code> · stage Idea";
     }
 
+    private async Task<string> TrackAsync(string argument, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            return "Usage: <code>/track &lt;url&gt; [note]</code>";
+        }
+
+        // First whitespace-delimited token is the URL; the remainder is an optional note.
+        var space = argument.IndexOf(' ', StringComparison.Ordinal);
+        var url = space < 0 ? argument.Trim() : argument[..space].Trim();
+        var note = space < 0 ? null : argument[(space + 1)..].Trim();
+
+        try
+        {
+            var result = await ingest.IngestAsync(url, note, ct);
+            var mark = result.Status switch
+            {
+                IngestStatus.Created => "✅",
+                IngestStatus.Updated => "♻️",
+                IngestStatus.AlreadyTracked => "ℹ️",
+                _ => "⚠️",
+            };
+            var slug = string.IsNullOrEmpty(result.Slug) ? "" : $"\n<code>{TelegramText.Escape(result.Slug)}</code>";
+            return $"{mark} {TelegramText.Escape(result.Message)}{slug}";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Telegram: /track failed for '{Url}'.", url);
+            return "⚠️ Couldn't ingest that URL. Try again in a bit.";
+        }
+    }
+
+    private async Task<string> PromoteAsync(string argument, CancellationToken ct)
+    {
+        var slug = argument.Trim();
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return "Usage: <code>/promote &lt;event-slug&gt;</code>  (promotes a quarantined candidate to scoring)";
+        }
+
+        try
+        {
+            var updated = await api.ApplyPipelineActionAsync(
+                slug, new PipelineActionRequest { Action = PipelineAction.Monitor, Note = "Promoted from quarantine — via Telegram" }, ct);
+            return $"⬆️ {TelegramText.Escape(updated.Name)} → <b>{updated.Category}</b> (queued for scoring)";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Telegram: /promote failed for '{Slug}'.", slug);
+            return $"⚠️ Couldn't promote <code>{TelegramText.Escape(slug)}</code>. Check the slug (from the digest).";
+        }
+    }
+
     private async Task<string> ApplyAsync(string argument, PipelineAction action, string note, CancellationToken ct)
     {
         var slug = argument.Trim();
@@ -197,6 +253,8 @@ public sealed class TelegramCommandRouter(
     internal const string HelpText =
         "🤖 <b>Speaker Pipeline</b>\n" +
         "<code>/status</code> — pipeline counts + what's actionable\n" +
+        "<code>/track &lt;url&gt; [note]</code> — ingest a CFP/event URL\n" +
+        "<code>/promote &lt;slug&gt;</code> — send a quarantined candidate to scoring\n" +
         "<code>/topic &lt;idea&gt;</code> — queue a talk idea\n" +
         "<code>/approve &lt;slug&gt;</code> — mark intent to submit\n" +
         "<code>/pass &lt;slug&gt;</code> — drop an event\n" +

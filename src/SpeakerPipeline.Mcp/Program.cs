@@ -6,7 +6,10 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using SpeakerPipeline.Client;
+using SpeakerPipeline.Core;
+using SpeakerPipeline.Mcp.Ingest;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -23,6 +26,11 @@ builder.Services.AddTransient<BearerTokenHandler>();
 builder.Services
     .AddSpeakerPipelineApiClient(builder.Configuration)
     .AddHttpMessageHandler<BearerTokenHandler>();
+
+// The ingest_event tool posts to the discovery host's agent-tier ingest endpoint
+// (extraction is an agent concern), not to the data API. Function-key auth.
+builder.Services.Configure<IngestOptions>(builder.Configuration.GetSection(IngestOptions.SectionName));
+builder.Services.AddHttpClient<IEventIngestService, HttpEventIngestService>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
 builder.Build().Run();
 
