@@ -21,7 +21,18 @@ public sealed class IngestHttpTrigger(IEventIngestService ingest, ILogger<Ingest
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "discovery/ingest")] HttpRequestData request,
         CancellationToken ct)
     {
-        var body = await request.ReadFromJsonAsync<IngestRequest>(ct);
+        IngestRequest? body;
+        try
+        {
+            body = await request.ReadFromJsonAsync<IngestRequest>(ct);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            logger.LogWarning(ex, "Ingest: unparseable request body.");
+            var bad = request.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteAsJsonAsync(new { error = "Body must be valid JSON and include a non-empty 'url'." }, ct);
+            return bad;
+        }
         if (body is null || string.IsNullOrWhiteSpace(body.Url))
         {
             var bad = request.CreateResponse(HttpStatusCode.BadRequest);
