@@ -147,9 +147,12 @@ public static class ScoringRubric
         }
 
         var committed = context.Committed
-            .Where(c => c.Start is { } s && s >= a.AddDays(-CommittedWindowDays) && s <= a.AddDays(CommittedWindowDays))
-            .OrderBy(c => c.Start)
-            .Select(c => $"{c.Slug} ({c.Start:yyyy-MM-dd}, effort={c.Effort})")
+            .Where(c => (c.Start ?? c.End) is { } start
+                       && (c.End ?? c.Start) is { } end
+                       && end >= a.AddDays(-CommittedWindowDays)
+                       && start <= a.AddDays(CommittedWindowDays))
+            .OrderBy(c => c.Start ?? c.End)
+            .Select(c => $"{c.Slug} ({(c.Start ?? c.End):yyyy-MM-dd}, effort={c.Effort})")
             .ToList();
 
         var blackouts = context.Blackouts
