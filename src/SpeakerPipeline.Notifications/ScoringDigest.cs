@@ -41,7 +41,7 @@ public static class ScoringDigest
                 body.Append($"<h3>Verdict flips ({flips.Count})</h3><ul>");
                 foreach (var v in flips)
                 {
-                    body.Append($"<li><strong>{Encode(v.EventSlug)}</strong> — {v.PriorCategory} → {v.Recommendation}, fit {v.FitScore}/10</li>");
+                    body.Append($"<li><strong>{Encode(v.EventSlug)}</strong> — {v.PriorCategory} → {ScoringMap.ToCategory(v.Recommendation)}, fit {v.FitScore}/10</li>");
                 }
                 body.Append("</ul>");
             }
