@@ -29,6 +29,8 @@ public class MappingTests
             SourceSeenOn = SourceSeenOn.Sessionize,
             LastVerifiedUtc = new DateTimeOffset(2026, 5, 24, 0, 0, 0, TimeSpan.Zero),
             DoNotResurface = false,
+            FamilyConflictFlag = true,
+            PrepConflictFlag = true,
             DiscoveredByAgent = "sessionize-scanner",
             DecidedByAgent = "scoring-agent-v1",
             SchemaVersion = 1,
@@ -46,6 +48,8 @@ public class MappingTests
         Assert.Equal(original.Format, roundTripped.Format);
         Assert.Equal(original.TravelBurden, roundTripped.TravelBurden);
         Assert.Equal(original.SourceSeenOn, roundTripped.SourceSeenOn);
+        Assert.Equal(original.FamilyConflictFlag, roundTripped.FamilyConflictFlag);
+        Assert.Equal(original.PrepConflictFlag, roundTripped.PrepConflictFlag);
         Assert.Equal(original.SchemaVersion, roundTripped.SchemaVersion);
     }
 

@@ -95,4 +95,44 @@ public class ScoringRubricContextTests
         var prompt = ScoringRubric.BuildUserPrompt(Candidate, [], Context());
         Assert.Contains("NewTopic preps in flight: 1 this month, 0 next", prompt);
     }
+
+    // --- C1: conflict flags in the context block -----------------------------
+
+    [Fact]
+    public void Known_conflicts_line_is_omitted_when_no_flags_are_set()
+    {
+        var prompt = ScoringRubric.BuildUserPrompt(Candidate, [], PipelineContext.Empty);
+        Assert.DoesNotContain("Known conflicts", prompt);
+    }
+
+    [Fact]
+    public void Family_conflict_flag_renders_a_known_conflicts_line()
+    {
+        var flagged = Candidate with { FamilyConflictFlag = true };
+
+        var prompt = ScoringRubric.BuildUserPrompt(flagged, [], PipelineContext.Empty);
+
+        Assert.Contains("Known conflicts:  family blackout overlap", prompt);
+    }
+
+    [Fact]
+    public void Both_flags_render_together()
+    {
+        var flagged = Candidate with { FamilyConflictFlag = true, PrepConflictFlag = true };
+
+        var prompt = ScoringRubric.BuildUserPrompt(flagged, [], PipelineContext.Empty);
+
+        Assert.Contains("family blackout overlap; prep congestion", prompt);
+    }
+
+    [Fact]
+    public void Conflict_flags_show_even_for_an_undated_candidate()
+    {
+        var undated = Candidate with { EventDateStart = null, CfpDeadline = null, PrepConflictFlag = true };
+
+        var prompt = ScoringRubric.BuildUserPrompt(undated, [], PipelineContext.Empty);
+
+        Assert.Contains("calendar overlap not evaluated", prompt);
+        Assert.Contains("Known conflicts:  prep congestion", prompt);
+    }
 }

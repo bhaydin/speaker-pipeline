@@ -59,9 +59,10 @@ internal sealed class HeuristicChatClient : IChatClient
         var name = c.Name.ToLowerInvariant();
         var deadlineDays = c.CfpDeadline?.Subtract(DateTimeOffset.UtcNow).TotalDays;
 
-        // Congestion/conflict signals now come from the pipeline-context block, not Notes.
-        var blackoutConflict = c.BlackoutNearby;
-        var congested = c.CommittedNearby || c.NewTopicPrepsThisMonth >= 2;
+        // Congestion/conflict signals come from the pipeline-context block, not Notes.
+        // A confirmed "Known conflicts" flag (C1) is decisive on its own.
+        var blackoutConflict = c.BlackoutNearby || c.FamilyConflictFlag;
+        var congested = c.CommittedNearby || c.NewTopicPrepsThisMonth >= 2 || c.PrepConflictFlag;
         var noFormalCfp = notes.Contains("no public cfp", StringComparison.Ordinal)
                          || notes.Contains("schedule speakers directly", StringComparison.Ordinal)
                          || notes.Contains("organizers schedule directly", StringComparison.Ordinal);
@@ -236,6 +237,8 @@ internal sealed record PromptContext
     public bool CommittedNearby { get; init; }
     public bool BlackoutNearby { get; init; }
     public int NewTopicPrepsThisMonth { get; init; }
+    public bool FamilyConflictFlag { get; init; }
+    public bool PrepConflictFlag { get; init; }
 }
 
 internal static class PromptParser
@@ -277,6 +280,7 @@ internal static class PromptParser
         var committedRaw = Get("Committed within ±8wk:") ?? "none";
         var blackoutRaw = Get("Blackouts within ±4wk:") ?? "none";
         var prepRaw = Get("NewTopic preps in flight:") ?? string.Empty;
+        var conflictsRaw = Get("Known conflicts:") ?? string.Empty;
 
         return new PromptContext
         {
@@ -291,6 +295,8 @@ internal static class PromptParser
             CommittedNearby = HasEntries(committedRaw),
             BlackoutNearby = HasEntries(blackoutRaw),
             NewTopicPrepsThisMonth = LeadingInt(prepRaw),
+            FamilyConflictFlag = conflictsRaw.Contains("family", StringComparison.OrdinalIgnoreCase),
+            PrepConflictFlag = conflictsRaw.Contains("prep", StringComparison.OrdinalIgnoreCase),
         };
     }
 

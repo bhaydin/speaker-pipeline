@@ -9,7 +9,7 @@ namespace SpeakerPipeline.Agents.Scoring;
 /// </summary>
 public static class ScoringRubric
 {
-    public const string Version = "v2";
+    public const string Version = "v3";
 
     public const string SystemPrompt = """
         You are the scoring agent for Brian Haydin's speaking pipeline. Brian
@@ -41,7 +41,10 @@ public static class ScoringRubric
         blackout ranges, and new-topic preps in flight near this event's dates.
         Ground factors 3 and 6 in that block — weigh a blackout overlap or a
         crowded prep window against the recommendation. Do not invent calendar
-        facts beyond what the block states; "none" means no known conflict.
+        facts beyond what the block states; "none" means no known conflict. A
+        "Known conflicts" line, when present, is a confirmed conflict already
+        computed for this event — treat it as decisive: a family blackout overlap
+        is a hard blocker, prep congestion argues against another heavy submission.
 
         Choose exactly one Recommendation:
 
@@ -137,13 +140,20 @@ public static class ScoringRubric
     {
         var anchor = eventRecord.EventDateStart ?? eventRecord.CfpDeadline;
         var prepLine = $"{context.NewTopicPrepsThisMonth} this month, {context.NewTopicPrepsNextMonth} next";
+        var conflicts = ConflictsLine(eventRecord);
 
         if (anchor is not { } a)
         {
-            return $"""
-                Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}): candidate has no date; calendar overlap not evaluated.
-                  NewTopic preps in flight: {prepLine}
-                """;
+            var undated = new List<string>
+            {
+                $"Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}): candidate has no date; calendar overlap not evaluated.",
+            };
+            if (conflicts is not null)
+            {
+                undated.Add($"  Known conflicts:  {conflicts}");
+            }
+            undated.Add($"  NewTopic preps in flight: {prepLine}");
+            return string.Join("\n", undated);
         }
 
         var committed = context.Committed
@@ -164,11 +174,33 @@ public static class ScoringRubric
         var committedLine = committed.Count == 0 ? "none" : string.Join("; ", committed);
         var blackoutLine = blackouts.Count == 0 ? "none" : string.Join("; ", blackouts);
 
-        return $"""
-            Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}):
-              Committed within ±8wk:  {committedLine}
-              Blackouts within ±4wk:  {blackoutLine}
-              NewTopic preps in flight: {prepLine}
-            """;
+        var lines = new List<string> { $"Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}):" };
+        if (conflicts is not null)
+        {
+            lines.Add($"  Known conflicts:  {conflicts}");
+        }
+        lines.Add($"  Committed within ±8wk:  {committedLine}");
+        lines.Add($"  Blackouts within ±4wk:  {blackoutLine}");
+        lines.Add($"  NewTopic preps in flight: {prepLine}");
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// The deterministic conflict flags the tracker set on this event (C1), or
+    /// null when clear. Surfaced so the scorer treats a confirmed conflict as a
+    /// hard signal rather than re-deriving it from the raw windows.
+    /// </summary>
+    private static string? ConflictsLine(EventRecord ev)
+    {
+        var flags = new List<string>();
+        if (ev.FamilyConflictFlag)
+        {
+            flags.Add("family blackout overlap");
+        }
+        if (ev.PrepConflictFlag)
+        {
+            flags.Add("prep congestion");
+        }
+        return flags.Count == 0 ? null : string.Join("; ", flags);
     }
 }

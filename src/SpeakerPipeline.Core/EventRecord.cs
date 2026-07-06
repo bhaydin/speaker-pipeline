@@ -34,6 +34,19 @@ public sealed record EventRecord
     public SourceSeenOn? SourceSeenOn { get; init; }
     public DateTimeOffset? LastVerifiedUtc { get; init; }
     public bool DoNotResurface { get; init; }
+
+    /// <summary>
+    /// Set by the conflict engine when the event's dates overlap a hard blackout
+    /// (family/personal). Deterministically recomputed each tracker-maintenance
+    /// run; consumed by the scoring context so the scorer sees a known conflict.
+    /// </summary>
+    public bool FamilyConflictFlag { get; init; }
+
+    /// <summary>
+    /// Set by the conflict engine when enough committed engagements crowd the
+    /// weeks around the event (prep congestion). Recomputed each run.
+    /// </summary>
+    public bool PrepConflictFlag { get; init; }
     public string? DiscoveredByAgent { get; init; }
     public string? DecidedByAgent { get; init; }
     public int SchemaVersion { get; init; } = 1;

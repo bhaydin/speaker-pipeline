@@ -117,6 +117,109 @@ public class TrackerMaintenanceAgentTests
         Assert.Empty(TrackerMaintenanceAgent.FindUrgentDeadlines(events, Now, urgentDays: 7));
     }
 
+    // --- ConflictEvaluator (C1) ----------------------------------------------
+
+    private static EventRecord Dated(string slug, EventCategory category, DateTimeOffset start, DateTimeOffset? end = null) =>
+        Event(slug, category) with { EventDateStart = start, EventDateEnd = end };
+
+    private static BlackoutRecord Blackout(DateTimeOffset start, DateTimeOffset end, BlackoutHardness hardness) => new()
+    {
+        BlackoutId = "b", StartDate = start, EndDate = end, Reason = "family", Hardness = hardness,
+    };
+
+    [Fact]
+    public void Evaluate_flags_family_when_event_overlaps_a_hard_blackout()
+    {
+        var ev = Dated("conf", EventCategory.SubmitNow, Now.AddDays(10), Now.AddDays(12));
+        var blackouts = new[] { Blackout(Now.AddDays(11), Now.AddDays(14), BlackoutHardness.Hard) };
+
+        var (family, prep) = ConflictEvaluator.Evaluate(ev, blackouts, [ev], prepWindowDays: 28, prepThreshold: 2);
+
+        Assert.True(family);
+        Assert.False(prep);
+    }
+
+    [Fact]
+    public void Evaluate_ignores_soft_blackouts_and_non_overlapping_ranges()
+    {
+        var ev = Dated("conf", EventCategory.SubmitNow, Now.AddDays(10), Now.AddDays(12));
+        var blackouts = new[]
+        {
+            Blackout(Now.AddDays(11), Now.AddDays(14), BlackoutHardness.Soft),  // soft: ignored
+            Blackout(Now.AddDays(40), Now.AddDays(45), BlackoutHardness.Hard),  // no overlap
+        };
+
+        var (family, _) = ConflictEvaluator.Evaluate(ev, blackouts, [ev], 28, 2);
+
+        Assert.False(family);
+    }
+
+    [Fact]
+    public void Evaluate_flags_prep_when_enough_committed_engagements_are_nearby()
+    {
+        var ev = Dated("conf", EventCategory.SubmitNow, Now.AddDays(30));
+        var all = new[]
+        {
+            ev,
+            Dated("committed-a", EventCategory.Accepted, Now.AddDays(20)),   // within ±28d
+            Dated("committed-b", EventCategory.Delivered, Now.AddDays(50)),  // within ±28d
+            Dated("committed-far", EventCategory.Accepted, Now.AddDays(90)), // outside window
+            Dated("monitor-near", EventCategory.Monitor, Now.AddDays(28)),   // not committed
+        };
+
+        var (_, prep) = ConflictEvaluator.Evaluate(ev, [], all, prepWindowDays: 28, prepThreshold: 2);
+
+        Assert.True(prep); // committed-a + committed-b = 2
+    }
+
+    [Fact]
+    public void Evaluate_below_threshold_does_not_flag_prep()
+    {
+        var ev = Dated("conf", EventCategory.SubmitNow, Now.AddDays(30));
+        var all = new[] { ev, Dated("committed-a", EventCategory.Accepted, Now.AddDays(20)) };
+
+        var (_, prep) = ConflictEvaluator.Evaluate(ev, [], all, 28, 2);
+
+        Assert.False(prep); // only 1 nearby
+    }
+
+    [Fact]
+    public void Evaluate_undated_event_has_no_conflicts()
+    {
+        var ev = Event("no-date", EventCategory.SubmitNow); // no EventDateStart
+        var blackouts = new[] { Blackout(Now, Now.AddDays(100), BlackoutHardness.Hard) };
+
+        var (family, prep) = ConflictEvaluator.Evaluate(ev, blackouts, [ev], 28, 2);
+
+        Assert.False(family);
+        Assert.False(prep);
+    }
+
+    // --- RunAsync: conflict flag persistence ---------------------------------
+
+    [Fact]
+    public async Task RunAsync_persists_conflict_flags_and_is_idempotent()
+    {
+        var api = new FakeApiClient();
+        api.Events["conf"] = Dated("conf", EventCategory.SubmitNow, Now.AddDays(10), Now.AddDays(12));
+        api.Blackouts.Add(Blackout(Now.AddDays(11), Now.AddDays(13), BlackoutHardness.Hard));
+
+        var agent = new TrackerMaintenanceAgent(api, Options.Create(new TrackerMaintenanceOptions()), NullLogger<TrackerMaintenanceAgent>.Instance);
+
+        var first = await agent.RunAsync();
+
+        var change = Assert.Single(first.ConflictChanges);
+        Assert.Equal("conf", change.EventSlug);
+        Assert.True(change.Family);
+        Assert.True(api.Events["conf"].FamilyConflictFlag); // persisted
+
+        api.Upserts = 0;
+        var second = await agent.RunAsync();
+
+        Assert.Empty(second.ConflictChanges); // flag already set → no re-write
+        Assert.Equal(0, api.Upserts);
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static EventRecord Event(string slug, EventCategory category) => new()
@@ -144,6 +247,7 @@ public class TrackerMaintenanceAgentTests
     {
         public Dictionary<string, EventRecord> Events { get; } = new();
         public Dictionary<string, List<SubmissionRecord>> Submissions { get; } = new();
+        public List<BlackoutRecord> Blackouts { get; } = [];
         public int Upserts { get; set; }
 
         public Task<IReadOnlyList<EventRecord>> GetEventsAsync(IReadOnlyList<EventCategory>? categories = null, TimeSpan? deadlineWindow = null, CancellationToken ct = default)
@@ -172,7 +276,7 @@ public class TrackerMaintenanceAgentTests
         public Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TopicRecord>>([]);
         public Task<TopicRecord?> GetTopicAsync(string topicId, CancellationToken ct = default) => Task.FromResult<TopicRecord?>(null);
         public Task<TopicRecord> UpsertTopicAsync(TopicRecord record, CancellationToken ct = default) => Task.FromResult(record);
-        public Task<IReadOnlyList<BlackoutRecord>> GetBlackoutsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<BlackoutRecord>>([]);
+        public Task<IReadOnlyList<BlackoutRecord>> GetBlackoutsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<BlackoutRecord>>([.. Blackouts]);
         public Task<BlackoutRecord> UpsertBlackoutAsync(BlackoutRecord record, CancellationToken ct = default) => Task.FromResult(record);
         public Task<EventRecord> ApplyPipelineActionAsync(string slug, PipelineActionRequest request, CancellationToken ct = default) => Task.FromResult(Events[slug]);
         public Task<IReadOnlyList<NotificationLogRecord>> GetNotificationsAsync(string period, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<NotificationLogRecord>>([]);

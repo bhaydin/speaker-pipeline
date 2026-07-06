@@ -22,4 +22,17 @@ public sealed class TrackerMaintenanceOptions
     /// coverage instead of waiting for the weekly scoring digest.
     /// </summary>
     public int UrgentDeadlineDays { get; set; } = 7;
+
+    /// <summary>
+    /// Committed engagements whose start falls within this many days of an event
+    /// (either side) count toward its prep congestion. Mirrors the rubric's
+    /// "surrounding 4 weeks".
+    /// </summary>
+    public int PrepWindowDays { get; set; } = 28;
+
+    /// <summary>
+    /// The number of nearby committed engagements at or above which an event is
+    /// flagged for prep congestion (<see cref="EventRecord.PrepConflictFlag"/>).
+    /// </summary>
+    public int PrepCongestionThreshold { get; set; } = 2;
 }

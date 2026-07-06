@@ -6,7 +6,7 @@ namespace SpeakerPipeline.Agents.Scoring.Evals;
 internal sealed record GoldenSet
 {
     public int SchemaVersion { get; init; } = 1;
-    public string RubricVersion { get; init; } = "v2";
+    public string RubricVersion { get; init; } = "v3";
     public List<GoldenCase> Cases { get; init; } = [];
 }
 
@@ -80,6 +80,10 @@ internal sealed record EventInput
     public TravelBurden? TravelBurden { get; init; }
     public string? Notes { get; init; }
 
+    /// <summary>Conflict flags the tracker would have set (C1) — surfaced in the scoring context.</summary>
+    public bool FamilyConflictFlag { get; init; }
+    public bool PrepConflictFlag { get; init; }
+
     public EventRecord ToEventRecord() => new()
     {
         Slug = Slug,
@@ -94,6 +98,8 @@ internal sealed record EventInput
         Format = Format,
         TravelBurden = TravelBurden,
         Notes = Notes,
+        FamilyConflictFlag = FamilyConflictFlag,
+        PrepConflictFlag = PrepConflictFlag,
     };
 }
 

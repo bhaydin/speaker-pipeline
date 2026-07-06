@@ -11,13 +11,35 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// </summary>
 internal static class TrackerNotification
 {
-    public static async Task SendAsync(INotifier notifier, IReadOnlyList<TrackerUpdate> updates, CancellationToken ct)
+    public static async Task SendAsync(
+        INotifier notifier,
+        IReadOnlyList<TrackerUpdate> updates,
+        IReadOnlyList<ConflictChange> conflicts,
+        CancellationToken ct)
     {
         var items = updates
             .Select(u => new DigestItem(u.EventSlug, IsNew: false, $"{u.From} → {u.To}"))
             .ToArray();
 
-        await notifier.NotifyAsync(TrackerDigest.Build(items), ct);
+        var conflictItems = conflicts
+            .Select(c => new DigestItem(c.EventSlug, IsNew: false, DescribeConflict(c)))
+            .ToArray();
+
+        await notifier.NotifyAsync(TrackerDigest.Build(items, conflictItems), ct);
+    }
+
+    private static string DescribeConflict(ConflictChange c)
+    {
+        var flags = new List<string>();
+        if (c.Family)
+        {
+            flags.Add("family blackout overlap");
+        }
+        if (c.Prep)
+        {
+            flags.Add("prep congestion");
+        }
+        return flags.Count == 0 ? "conflicts cleared" : string.Join("; ", flags);
     }
 
     /// <summary>
