@@ -32,7 +32,7 @@ public class ScoringAgentEvalRunner
     public async Task Runs_full_golden_set_and_writes_report()
     {
         var goldens = LoadGoldens();
-        Assert.True(goldens.Cases.Count >= 12, $"Expected at least 12 golden cases, got {goldens.Cases.Count}");
+        Assert.True(goldens.Cases.Count >= 14, $"Expected at least 14 golden cases, got {goldens.Cases.Count}");
 
         var chat = CreateChatClient();
         var options = Options.Create(new ScoringAgentOptions
@@ -80,7 +80,8 @@ public class ScoringAgentEvalRunner
     {
         try
         {
-            var decision = await agent.ScoreAsync(golden.Event.ToEventRecord(), CanonicalTalks);
+            var context = golden.Context?.ToPipelineContext() ?? PipelineContext.Empty;
+            var decision = await agent.ScoreAsync(golden.Event.ToEventRecord(), CanonicalTalks, context);
 
             var passesRecommendation = decision.Recommendation == golden.ExpectedRecommendation
                                        || golden.ExpectedRecommendationAlternates.Contains(decision.Recommendation);
@@ -172,6 +173,7 @@ public class ScoringAgentEvalRunner
         public Task<TalkRecord> UpsertTalkAsync(TalkRecord record, CancellationToken ct = default) => Task.FromResult(record);
         public Task<IReadOnlyList<EventRecord>> GetScoringCandidatesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventRecord>>([]);
         public Task PostScoringDecisionAsync(ScoringDecision decision, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<PipelineContext> GetPipelineContextAsync(CancellationToken ct = default) => Task.FromResult(PipelineContext.Empty);
         public Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TopicRecord>>([]);
         public Task<TopicRecord?> GetTopicAsync(string topicId, CancellationToken ct = default) => Task.FromResult<TopicRecord?>(null);
         public Task<TopicRecord> UpsertTopicAsync(TopicRecord record, CancellationToken ct = default) => Task.FromResult(record);

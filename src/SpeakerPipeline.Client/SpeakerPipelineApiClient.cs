@@ -92,6 +92,9 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
         }
     }
 
+    public async Task<PipelineContext> GetPipelineContextAsync(CancellationToken ct = default)
+        => await GetJsonAsync<PipelineContext>("v1/pipeline/context", ct) ?? PipelineContext.Empty;
+
     public async Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default)
     {
         var url = stage is null ? "v1/topics" : $"v1/topics?stage={stage}";

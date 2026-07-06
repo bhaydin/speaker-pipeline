@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rubricVersion": "v1",
+  "rubricVersion": "v2",
   "cases": [
     {
       "id": "clear-submit-now-hometown-agentops",
@@ -45,7 +45,7 @@
     },
     {
       "id": "edge-high-fit-bad-timing",
-      "description": "Strong AgentOps fit but two heavy talks already in flight in the surrounding 4 weeks. Should Monitor or Pass.",
+      "description": "Strong AgentOps fit but two committed engagements sit in the surrounding weeks (from pipeline context, not Notes). Should Monitor or Pass.",
       "event": {
         "Slug": "great-lakes-cloud-conf-2027",
         "Name": "Great Lakes Cloud Conf 2027",
@@ -58,11 +58,76 @@
         "Location": "Chicago, IL",
         "Format": "InPerson",
         "TravelBurden": "Low",
-        "Notes": "Prep congestion: two large talks already scheduled in the surrounding 4 weeks"
+        "Notes": "AgentOps track confirmed"
+      },
+      "context": {
+        "asOfUtc": "2027-01-05T00:00:00Z",
+        "committed": [
+          { "slug": "midwest-ai-summit-2027", "name": "Midwest AI Summit 2027", "start": "2027-03-10T00:00:00Z", "end": "2027-03-12T00:00:00Z", "effort": "NewTopic" },
+          { "slug": "cloud-north-2027", "name": "Cloud North 2027", "start": "2027-04-08T00:00:00Z", "end": "2027-04-09T00:00:00Z", "effort": "NewTopic" }
+        ],
+        "newTopicPrepsThisMonth": 2,
+        "newTopicPrepsNextMonth": 1
       },
       "expectedRecommendation": "Monitor",
       "expectedRecommendationAlternates": ["Pass"],
       "rationaleKeywords": ["congestion"]
+    },
+    {
+      "id": "context-collision-committed-engagement",
+      "description": "Exit test: strong AgentOps fit colliding with a committed engagement in the ±8wk window. Context must pull it off SubmitNow to Monitor/Pass with a rationale naming the conflict.",
+      "event": {
+        "Slug": "badgerland-agentops-forum-2027",
+        "Name": "Badgerland AgentOps Forum 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-05-20T00:00:00Z",
+        "CfpDeadline": "2027-03-15T23:59:00Z",
+        "Location": "Madison, WI",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "AgentOps forum"
+      },
+      "context": {
+        "asOfUtc": "2027-03-01T00:00:00Z",
+        "committed": [
+          { "slug": "midwest-ai-summit-2027", "name": "Midwest AI Summit 2027", "start": "2027-05-25T00:00:00Z", "end": "2027-05-27T00:00:00Z", "effort": "NewTopic" }
+        ],
+        "newTopicPrepsThisMonth": 1,
+        "newTopicPrepsNextMonth": 1
+      },
+      "expectedRecommendation": "Monitor",
+      "expectedRecommendationAlternates": ["Pass"],
+      "rationaleKeywords": ["conflict"]
+    },
+    {
+      "id": "context-clear-calendar-submitnow",
+      "description": "Exit test: the same event with a clear calendar (no committed engagements, no blackouts) scores SubmitNow.",
+      "event": {
+        "Slug": "badgerland-agentops-forum-2027",
+        "Name": "Badgerland AgentOps Forum 2027",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-05-20T00:00:00Z",
+        "CfpDeadline": "2027-03-15T23:59:00Z",
+        "Location": "Madison, WI",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "AgentOps forum"
+      },
+      "context": {
+        "asOfUtc": "2027-03-01T00:00:00Z",
+        "committed": [],
+        "newTopicPrepsThisMonth": 0,
+        "newTopicPrepsNextMonth": 0
+      },
+      "expectedRecommendation": "SubmitNow",
+      "expectedTalkSlug": "agentops-real-world",
+      "rationaleKeywords": ["AgentOps"]
     },
     {
       "id": "edge-low-fit-easy-win-virtual",

@@ -59,7 +59,9 @@ internal sealed class HeuristicChatClient : IChatClient
         var name = c.Name.ToLowerInvariant();
         var deadlineDays = c.CfpDeadline?.Subtract(DateTimeOffset.UtcNow).TotalDays;
 
-        var congestion = notes.Contains("congestion", StringComparison.Ordinal);
+        // Congestion/conflict signals now come from the pipeline-context block, not Notes.
+        var blackoutConflict = c.BlackoutNearby;
+        var congested = c.CommittedNearby || c.NewTopicPrepsThisMonth >= 2;
         var noFormalCfp = notes.Contains("no public cfp", StringComparison.Ordinal)
                          || notes.Contains("schedule speakers directly", StringComparison.Ordinal)
                          || notes.Contains("organizers schedule directly", StringComparison.Ordinal);
@@ -111,9 +113,18 @@ internal sealed class HeuristicChatClient : IChatClient
             effort = 5;
             confidence = 6;
         }
-        else if (congestion)
+        else if (blackoutConflict)
         {
-            rationale.Add("Strong fit, but prep congestion in the surrounding 4 weeks argues against another heavy submission.");
+            rationale.Add("A blackout in the surrounding weeks conflicts with this event's dates.");
+            recommendation = Recommendation.Pass;
+            fit = 6;
+            effort = 5;
+            confidence = 8;
+            talkSlug = LaneToTalk(lane);
+        }
+        else if (congested)
+        {
+            rationale.Add("A committed engagement or prep congestion in the surrounding weeks conflicts with this window.");
             recommendation = Recommendation.Monitor;
             fit = 8;
             effort = 6;
@@ -220,6 +231,11 @@ internal sealed record PromptContext
     public EventFormat? Format { get; init; }
     public TravelBurden? TravelBurden { get; init; }
     public required string Notes { get; init; }
+
+    // Parsed from the pipeline-context block (already windowed to this candidate).
+    public bool CommittedNearby { get; init; }
+    public bool BlackoutNearby { get; init; }
+    public int NewTopicPrepsThisMonth { get; init; }
 }
 
 internal static class PromptParser
@@ -258,6 +274,10 @@ internal static class PromptParser
             .Select(l => l!.Value)
             .ToArray();
 
+        var committedRaw = Get("Committed within ±8wk:") ?? "none";
+        var blackoutRaw = Get("Blackouts within ±4wk:") ?? "none";
+        var prepRaw = Get("NewTopic preps in flight:") ?? string.Empty;
+
         return new PromptContext
         {
             Slug = Get("Slug:") ?? string.Empty,
@@ -268,6 +288,18 @@ internal static class PromptParser
             Format = GetEnum<EventFormat>("Format:"),
             TravelBurden = GetEnum<TravelBurden>("TravelBurden:"),
             Notes = Get("Notes:") ?? string.Empty,
+            CommittedNearby = HasEntries(committedRaw),
+            BlackoutNearby = HasEntries(blackoutRaw),
+            NewTopicPrepsThisMonth = LeadingInt(prepRaw),
         };
+    }
+
+    private static bool HasEntries(string value)
+        => value.Length > 0 && !value.Equals("none", StringComparison.OrdinalIgnoreCase);
+
+    private static int LeadingInt(string value)
+    {
+        var digits = new string(value.TrimStart().TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var n) ? n : 0;
     }
 }

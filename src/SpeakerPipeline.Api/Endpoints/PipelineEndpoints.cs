@@ -21,8 +21,38 @@ public static class PipelineEndpoints
             .RequireAuthorization(AuthExtensions.PolicyName);
 
         group.MapPost("{slug}/actions", PostAction).WithName("ApplyPipelineAction");
+        group.MapGet("context", GetContext).WithName("GetPipelineContext");
 
         return routes;
+    }
+
+    /// <summary>
+    /// Assembles the calendar/load context the scoring agent needs: committed
+    /// engagements (with a reusability-derived effort hint), blackout ranges, and
+    /// new-topic prep counts. One query set per scoring run; the agent windows it
+    /// per candidate. See BUILD_PLAN.GO_FORWARD B1.
+    /// </summary>
+    private static async Task<IResult> GetContext(
+        IEventRepository events,
+        ISubmissionRepository submissions,
+        ITalkRepository talks,
+        IBlackoutRepository blackouts,
+        CancellationToken ct)
+    {
+        var relevant = await events.GetByCategoryAsync(PipelineContextAssembler.RelevantCategories, ct);
+        var talkList = await talks.GetAllAsync(ct);
+        var blackoutList = await blackouts.GetAllAsync(ct);
+
+        var submissionsByEvent = new Dictionary<string, IReadOnlyList<SubmissionRecord>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in relevant)
+        {
+            submissionsByEvent[e.Slug] = await submissions.GetForEventAsync(e.Slug, ct);
+        }
+
+        var context = PipelineContextAssembler.Assemble(
+            relevant, submissionsByEvent, talkList, blackoutList, DateTimeOffset.UtcNow);
+
+        return Results.Ok(context);
     }
 
     private static async Task<IResult> PostAction(string slug, PipelineActionRequest request, IEventRepository events, CancellationToken ct)
