@@ -196,8 +196,17 @@ public sealed class ConfsTechSource(
     private static bool IsMidwest(ConfsTechEntry entry, ConfsTechOptions options)
     {
         var haystack = $"{entry.City} {entry.Country}";
+
+        // For 2-letter state abbreviations, require a token match to avoid false positives (e.g. "Berlin" -> "IN").
+        var tokens = haystack
+            .Split(new[] { ' ', ',', ';', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim('.', ')', '(').ToUpperInvariant())
+            .ToHashSet(StringComparer.Ordinal);
+
         return options.MidwestMarkers.Any(marker =>
-            haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
+            marker.Length <= 2
+                ? tokens.Contains(marker.ToUpperInvariant())
+                : haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool TryParseDate(string? value, out DateTime date)
