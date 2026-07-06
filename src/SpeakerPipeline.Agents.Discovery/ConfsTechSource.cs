@@ -184,8 +184,13 @@ public sealed class ConfsTechSource(
         {
             return false;
         }
-        return options.UsCountryAliases.Any(alias =>
-            country.Contains(alias, StringComparison.OrdinalIgnoreCase));
+
+        // Normalize to alphanumerics for stable comparison (e.g. "U.S.A." -> "USA").
+        var normalized = string.Concat(country.Where(char.IsLetterOrDigit)).ToUpperInvariant();
+
+        return options.UsCountryAliases
+            .Select(a => string.Concat(a.Where(char.IsLetterOrDigit)).ToUpperInvariant())
+            .Any(a => normalized == a || normalized.StartsWith(a, StringComparison.Ordinal));
     }
 
     private static bool IsMidwest(ConfsTechEntry entry, ConfsTechOptions options)
