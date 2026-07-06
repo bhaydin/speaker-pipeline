@@ -104,17 +104,22 @@ public sealed class TrackerMaintenanceAgent
     internal static IReadOnlyList<UrgentDeadline> FindUrgentDeadlines(
         IReadOnlyList<EventRecord> events, DateTimeOffset now, int urgentDays)
     {
-        var cutoff = now.AddDays(urgentDays);
+        var today = now.UtcDateTime.Date;
+        var cutoffDate = today.AddDays(urgentDays);
         return
         [
             .. events
                 .Where(e => e.Category == EventCategory.SubmitNow
                             && !e.DoNotResurface
-                            && e.CfpDeadline is { } d && d >= now && d <= cutoff)
+                            && e.CfpDeadline is { } d
+                            && d >= now
+                            && d.UtcDateTime.Date <= cutoffDate)
                 .OrderBy(e => e.CfpDeadline)
-                .Select(e => new UrgentDeadline(
-                    e.Slug, e.Name, e.CfpDeadline!.Value,
-                    (int)Math.Ceiling((e.CfpDeadline!.Value - now).TotalDays))),
+                .Select(e =>
+                {
+                    var d = e.CfpDeadline!.Value;
+                    return new UrgentDeadline(e.Slug, e.Name, d, (d.UtcDateTime.Date - today).Days);
+                }),
         ];
     }
 
