@@ -6,7 +6,7 @@ namespace SpeakerPipeline.Agents.Scoring.Evals;
 internal sealed record GoldenSet
 {
     public int SchemaVersion { get; init; } = 1;
-    public string RubricVersion { get; init; } = "v1";
+    public string RubricVersion { get; init; } = "v2";
     public List<GoldenCase> Cases { get; init; } = [];
 }
 
@@ -15,10 +15,50 @@ internal sealed record GoldenCase
     public required string Id { get; init; }
     public string? Description { get; init; }
     public required EventInput Event { get; init; }
+
+    /// <summary>Optional calendar/load context. Absent ⇒ scored with an empty context (no known conflicts).</summary>
+    public PipelineContextInput? Context { get; init; }
+
     public required Recommendation ExpectedRecommendation { get; init; }
     public List<Recommendation> ExpectedRecommendationAlternates { get; init; } = [];
     public string? ExpectedTalkSlug { get; init; }
     public List<string> RationaleKeywords { get; init; } = [];
+}
+
+/// <summary>Golden-file shape for a <see cref="PipelineContext"/> — only the fields the rubric consumes.</summary>
+internal sealed record PipelineContextInput
+{
+    public DateTimeOffset AsOfUtc { get; init; }
+    public List<CommittedEngagementInput> Committed { get; init; } = [];
+    public List<BlackoutInput> Blackouts { get; init; } = [];
+    public int NewTopicPrepsThisMonth { get; init; }
+    public int NewTopicPrepsNextMonth { get; init; }
+
+    public PipelineContext ToPipelineContext() => new()
+    {
+        AsOfUtc = AsOfUtc,
+        Committed = [.. Committed.Select(c => new CommittedEngagement(c.Slug, c.Name, c.Start, c.End, c.Effort))],
+        Blackouts = [.. Blackouts.Select(b => new BlackoutWindow(b.Start, b.End, b.Reason, b.Hardness))],
+        NewTopicPrepsThisMonth = NewTopicPrepsThisMonth,
+        NewTopicPrepsNextMonth = NewTopicPrepsNextMonth,
+    };
+}
+
+internal sealed record CommittedEngagementInput
+{
+    public required string Slug { get; init; }
+    public required string Name { get; init; }
+    public DateTimeOffset? Start { get; init; }
+    public DateTimeOffset? End { get; init; }
+    public EffortClass Effort { get; init; } = EffortClass.NewTopic;
+}
+
+internal sealed record BlackoutInput
+{
+    public DateTimeOffset Start { get; init; }
+    public DateTimeOffset End { get; init; }
+    public string Reason { get; init; } = string.Empty;
+    public BlackoutHardness Hardness { get; init; } = BlackoutHardness.Hard;
 }
 
 /// <summary>

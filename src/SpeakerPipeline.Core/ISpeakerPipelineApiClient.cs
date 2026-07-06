@@ -34,6 +34,13 @@ public interface ISpeakerPipelineApiClient
 
     Task PostScoringDecisionAsync(ScoringDecision decision, CancellationToken ct = default);
 
+    /// <summary>
+    /// Assembles the calendar/load context the scoring agent windows per
+    /// candidate: committed engagements, blackout ranges, and new-topic prep
+    /// counts. One query set per scoring run.
+    /// </summary>
+    Task<PipelineContext> GetPipelineContextAsync(CancellationToken ct = default);
+
     // ---- Topics ----------------------------------------------------------
 
     Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default);

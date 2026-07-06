@@ -1,3 +1,5 @@
+using SpeakerPipeline.Core;
+
 namespace SpeakerPipeline.Agents.Scoring;
 
 /// <summary>
@@ -7,7 +9,7 @@ namespace SpeakerPipeline.Agents.Scoring;
 /// </summary>
 public static class ScoringRubric
 {
-    public const string Version = "v1";
+    public const string Version = "v2";
 
     public const string SystemPrompt = """
         You are the scoring agent for Brian Haydin's speaking pipeline. Brian
@@ -35,6 +37,12 @@ public static class ScoringRubric
           6. Prep congestion. If two talks are already in flight in the
              surrounding 4 weeks, do not pile on another heavy submission.
 
+        A "Pipeline context" block below lists Brian's committed engagements,
+        blackout ranges, and new-topic preps in flight near this event's dates.
+        Ground factors 3 and 6 in that block — weigh a blackout overlap or a
+        crowded prep window against the recommendation. Do not invent calendar
+        facts beyond what the block states; "none" means no known conflict.
+
         Choose exactly one Recommendation:
 
           - SubmitNow — strong fit, clear CFP, reasonable effort, calendar has
@@ -59,10 +67,25 @@ public static class ScoringRubric
         """;
 
     /// <summary>
-    /// Builds the user-message prompt for a single event. Keep this stable —
-    /// it's part of the eval contract.
+    /// Windowing bounds for the pipeline-context block: committed engagements
+    /// within ±8 weeks of the candidate, blackouts within ±4 weeks.
     /// </summary>
-    public static string BuildUserPrompt(Core.EventRecord eventRecord, IReadOnlyList<Core.TalkRecord> talks)
+    private const int CommittedWindowDays = 56;
+    private const int BlackoutWindowDays = 28;
+
+    /// <summary>
+    /// Builds the user-message prompt for a single event, with no calendar
+    /// context. Retained for callers that score without a pipeline view.
+    /// </summary>
+    public static string BuildUserPrompt(EventRecord eventRecord, IReadOnlyList<TalkRecord> talks)
+        => BuildUserPrompt(eventRecord, talks, PipelineContext.Empty);
+
+    /// <summary>
+    /// Builds the user-message prompt for a single event, including the calendar
+    /// context windowed to this candidate. Keep this stable — it's part of the
+    /// eval contract.
+    /// </summary>
+    public static string BuildUserPrompt(EventRecord eventRecord, IReadOnlyList<TalkRecord> talks, PipelineContext context)
     {
         var talksBlock = talks.Count == 0
             ? "(none provided)"
@@ -89,6 +112,8 @@ public static class ScoringRubric
             Candidate talks (most-reusable first):
             {{talksBlock}}
 
+            {{BuildContextBlock(eventRecord, context)}}
+
             Respond with a single JSON object matching this schema:
             {
               "eventSlug": "<echo back the input slug>",
@@ -99,6 +124,51 @@ public static class ScoringRubric
               "confidenceScore": <integer 1-10>,
               "recommendedTalkSlug": "<one of the candidate slugs, or null>"
             }
+            """;
+    }
+
+    /// <summary>
+    /// Renders the pipeline-context block, windowed to the candidate's anchor
+    /// date (its start, or the CFP deadline as a fallback). Committed engagements
+    /// and blackouts outside the window are omitted so the model sees only what's
+    /// near this event. An undated candidate can't be checked for overlap.
+    /// </summary>
+    private static string BuildContextBlock(EventRecord eventRecord, PipelineContext context)
+    {
+        var anchor = eventRecord.EventDateStart ?? eventRecord.CfpDeadline;
+        var prepLine = $"{context.NewTopicPrepsThisMonth} this month, {context.NewTopicPrepsNextMonth} next";
+
+        if (anchor is not { } a)
+        {
+            return $"""
+                Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}): candidate has no date; calendar overlap not evaluated.
+                  NewTopic preps in flight: {prepLine}
+                """;
+        }
+
+        var committed = context.Committed
+            .Where(c => (c.Start ?? c.End) is { } start
+                       && (c.End ?? c.Start) is { } end
+                       && end >= a.AddDays(-CommittedWindowDays)
+                       && start <= a.AddDays(CommittedWindowDays))
+            .OrderBy(c => c.Start ?? c.End)
+            .Select(c => $"{c.Slug} ({(c.Start ?? c.End):yyyy-MM-dd}, effort={c.Effort})")
+            .ToList();
+
+        var blackouts = context.Blackouts
+            .Where(b => b.End >= a.AddDays(-BlackoutWindowDays) && b.Start <= a.AddDays(BlackoutWindowDays))
+            .OrderBy(b => b.Start)
+            .Select(b => $"{b.Start:yyyy-MM-dd}..{b.End:yyyy-MM-dd} ({b.Reason}, {b.Hardness})")
+            .ToList();
+
+        var committedLine = committed.Count == 0 ? "none" : string.Join("; ", committed);
+        var blackoutLine = blackouts.Count == 0 ? "none" : string.Join("; ", blackouts);
+
+        return $"""
+            Pipeline context (as of {context.AsOfUtc:yyyy-MM-dd}):
+              Committed within ±8wk:  {committedLine}
+              Blackouts within ±4wk:  {blackoutLine}
+              NewTopic preps in flight: {prepLine}
             """;
     }
 }

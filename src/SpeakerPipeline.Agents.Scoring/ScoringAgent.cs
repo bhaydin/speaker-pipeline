@@ -68,13 +68,19 @@ public sealed class ScoringAgent
         runActivity?.SetTag("candidates.count", capped.Length);
 
         var talks = await _api.GetTalksAsync(ct: ct);
+
+        // One context assembly per run — the scorer windows it per candidate.
+        var context = await _api.GetPipelineContextAsync(ct);
+        runActivity?.SetTag("context.committed", context.Committed.Count);
+        runActivity?.SetTag("context.blackouts", context.Blackouts.Count);
+
         var decisions = new List<ScoringDecision>(capped.Length);
 
         foreach (var ev in capped)
         {
             try
             {
-                var decision = await ScoreAsync(ev, talks, ct);
+                var decision = await ScoreAsync(ev, talks, context, ct);
                 await _api.PostScoringDecisionAsync(decision, ct);
                 decisions.Add(decision);
             }
@@ -90,9 +96,12 @@ public sealed class ScoringAgent
 
     /// <summary>
     /// Scores a single event. Public so the eval suite can exercise it
-    /// directly with goldens.
+    /// directly with goldens. <paramref name="context"/> supplies the calendar
+    /// view the rubric's congestion/travel factors need; pass null to score
+    /// without it.
     /// </summary>
-    public async Task<ScoringDecision> ScoreAsync(EventRecord eventRecord, IReadOnlyList<TalkRecord> talks, CancellationToken ct = default)
+    public async Task<ScoringDecision> ScoreAsync(
+        EventRecord eventRecord, IReadOnlyList<TalkRecord> talks, PipelineContext? context = null, CancellationToken ct = default)
     {
         using var activity = ActivitySource.StartActivity("scoring-agent.score");
         activity?.SetTag("agent.name", _options.AgentName);
@@ -103,7 +112,7 @@ public sealed class ScoringAgent
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, ScoringRubric.SystemPrompt),
-            new(ChatRole.User, ScoringRubric.BuildUserPrompt(eventRecord, talks)),
+            new(ChatRole.User, ScoringRubric.BuildUserPrompt(eventRecord, talks, context ?? PipelineContext.Empty)),
         };
 
         _logger.LogDebug("Scoring agent prompt for {Slug}: {Prompt}", eventRecord.Slug, messages[1].Text);
