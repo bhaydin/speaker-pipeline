@@ -78,15 +78,13 @@ public static class ScoringEndpoints
     }
 
     private static (EventCategory category, Priority priority) MapRecommendation(ScoringDecision d) =>
-        d.Recommendation switch
+        (ScoringMap.ToCategory(d.Recommendation), d.Recommendation switch
         {
-            Recommendation.SubmitNow => (EventCategory.SubmitNow, PriorityFromFit(d.FitScore)),
-            Recommendation.Outreach  => (EventCategory.Outreach,  Priority.Medium),
-            Recommendation.Monitor   => (EventCategory.Monitor,   Priority.Low),
-            Recommendation.Pass      => (EventCategory.Pass,      Priority.NA),
-            Recommendation.Skip      => (EventCategory.Skip,      Priority.NA),
-            _                        => (EventCategory.Monitor,   Priority.NA),
-        };
+            Recommendation.SubmitNow => PriorityFromFit(d.FitScore),
+            Recommendation.Outreach  => Priority.Medium,
+            Recommendation.Monitor   => Priority.Low,
+            _                        => Priority.NA,
+        });
 
     private static Priority PriorityFromFit(int fit) => fit switch
     {

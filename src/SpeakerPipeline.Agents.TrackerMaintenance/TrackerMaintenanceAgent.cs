@@ -40,7 +40,7 @@ public sealed class TrackerMaintenanceAgent
     /// and writes back the ones that changed. Returns the changes made (for
     /// observability and tests).
     /// </summary>
-    public async Task<IReadOnlyList<TrackerUpdate>> RunAsync(CancellationToken ct = default)
+    public async Task<TrackerMaintenanceResult> RunAsync(CancellationToken ct = default)
     {
         using var runActivity = ActivitySource.StartActivity("tracker-maintenance.run");
         runActivity?.SetTag("agent.name", _options.AgentName);
@@ -84,10 +84,43 @@ public sealed class TrackerMaintenanceAgent
             }
         }
 
+        // Daily deadline sweep (B3): flag SubmitNow events whose CFP deadline is
+        // imminent so the weekly scoring digest isn't the first alert.
+        var urgent = FindUrgentDeadlines(events, DateTimeOffset.UtcNow, _options.UrgentDeadlineDays);
+
         runActivity?.SetTag("events.considered", considered);
         runActivity?.SetTag("events.updated", updates.Count);
-        _logger.LogInformation("Tracker-maintenance run complete. {Updated}/{Considered} updated.", updates.Count, considered);
-        return updates;
+        runActivity?.SetTag("deadlines.urgent", urgent.Count);
+        _logger.LogInformation("Tracker-maintenance run complete. {Updated}/{Considered} updated, {Urgent} urgent deadlines.",
+            updates.Count, considered, urgent.Count);
+        return new TrackerMaintenanceResult(updates, urgent);
+    }
+
+    /// <summary>
+    /// Selects the <see cref="EventCategory.SubmitNow"/> events whose CFP deadline
+    /// is still ahead but within the urgency window. Pure and clock-injected so
+    /// the sweep is unit-testable without the API.
+    /// </summary>
+    internal static IReadOnlyList<UrgentDeadline> FindUrgentDeadlines(
+        IReadOnlyList<EventRecord> events, DateTimeOffset now, int urgentDays)
+    {
+        var today = now.UtcDateTime.Date;
+        var cutoffDate = today.AddDays(urgentDays);
+        return
+        [
+            .. events
+                .Where(e => e.Category == EventCategory.SubmitNow
+                            && !e.DoNotResurface
+                            && e.CfpDeadline is { } d
+                            && d >= now
+                            && d.UtcDateTime.Date <= cutoffDate)
+                .OrderBy(e => e.CfpDeadline)
+                .Select(e =>
+                {
+                    var d = e.CfpDeadline!.Value;
+                    return new UrgentDeadline(e.Slug, e.Name, d, (d.UtcDateTime.Date - today).Days);
+                }),
+        ];
     }
 
     /// <summary>
@@ -134,3 +167,11 @@ public sealed class TrackerMaintenanceAgent
 
 /// <summary>A category change the tracker applied to one event.</summary>
 public sealed record TrackerUpdate(string EventSlug, EventCategory From, EventCategory To);
+
+/// <summary>A SubmitNow event whose CFP deadline is imminent (within the urgency window).</summary>
+public sealed record UrgentDeadline(string EventSlug, string EventName, DateTimeOffset Deadline, int DaysRemaining);
+
+/// <summary>The full outcome of a tracker-maintenance run: category reconciles and imminent deadlines.</summary>
+public sealed record TrackerMaintenanceResult(
+    IReadOnlyList<TrackerUpdate> Updates,
+    IReadOnlyList<UrgentDeadline> UrgentDeadlines);

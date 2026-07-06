@@ -22,13 +22,13 @@ public sealed class ScoringAgentTimerTrigger(
     public async Task Run([TimerTrigger("0 0 6 * * MON")] TimerInfo timer, CancellationToken ct)
     {
         logger.LogInformation("Scoring agent run starting (scheduled). Next: {Next}", timer.ScheduleStatus?.Next);
-        var decisions = await agent.RunAsync(ct);
+        var verdicts = await agent.RunAsync(ct);
 
-        if (NotificationPolicy.ShouldNotify(decisions.Count, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
+        if (NotificationPolicy.ShouldNotify(verdicts.Count, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
         {
-            await notifier.NotifyAsync(ScoringDigest.Build(decisions), ct);
+            await ScoringNotification.SendAsync(notifier, verdicts, ct);
         }
 
-        logger.LogInformation("Scoring agent run complete. Decisions: {Count}", decisions.Count);
+        logger.LogInformation("Scoring agent run complete. Decisions: {Count}", verdicts.Count);
     }
 }

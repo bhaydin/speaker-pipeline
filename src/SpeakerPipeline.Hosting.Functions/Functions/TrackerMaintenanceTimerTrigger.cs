@@ -23,13 +23,17 @@ public sealed class TrackerMaintenanceTimerTrigger(
     public async Task Run([TimerTrigger("0 30 5 * * *")] TimerInfo timer, CancellationToken ct)
     {
         logger.LogInformation("Tracker-maintenance run starting (scheduled). Next: {Next}", timer.ScheduleStatus?.Next);
-        var updates = await agent.RunAsync(ct);
+        var result = await agent.RunAsync(ct);
 
-        if (NotificationPolicy.ShouldNotify(updates.Count, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
+        // Urgent deadline alerts always go out (deduped); the category-update digest honors suppression.
+        await TrackerNotification.SendUrgentDeadlinesAsync(notifier, result.UrgentDeadlines, ct);
+
+        if (NotificationPolicy.ShouldNotify(result.Updates.Count, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
         {
-            await TrackerNotification.SendAsync(notifier, updates, ct);
+            await TrackerNotification.SendAsync(notifier, result.Updates, ct);
         }
 
-        logger.LogInformation("Tracker-maintenance run complete. Updates: {Count}", updates.Count);
+        logger.LogInformation("Tracker-maintenance run complete. Updates: {Updates}, urgent: {Urgent}",
+            result.Updates.Count, result.UrgentDeadlines.Count);
     }
 }

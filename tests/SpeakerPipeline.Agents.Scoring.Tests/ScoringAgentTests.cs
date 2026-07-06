@@ -121,6 +121,45 @@ public class ScoringAgentTests
     }
 
     [Fact]
+    public async Task RunAsync_classifies_new_changed_and_unchanged_verdicts()
+    {
+        var api = new FakeApiClient();
+        api.Candidates.Add(Candidate("fresh", EventCategory.Monitor, decidedBy: null));                 // never scored → New
+        api.Candidates.Add(Candidate("flipper", EventCategory.SubmitNow, decidedBy: "scoring-agent-v1")); // SubmitNow → Monitor → Changed
+        api.Candidates.Add(Candidate("steady", EventCategory.Monitor, decidedBy: "scoring-agent-v1"));    // stays Monitor → Unchanged
+
+        var chat = new FakeChatClient();
+        chat.Enqueue(ModelJson(Recommendation.Monitor)); // fresh
+        chat.Enqueue(ModelJson(Recommendation.Monitor)); // flipper
+        chat.Enqueue(ModelJson(Recommendation.Monitor)); // steady
+
+        var options = Options.Create(new ScoringAgentOptions { ModelName = "m", AgentName = "scoring-agent", AgentVersion = "test" });
+        var agent = new ScoringAgent(chat, api, options, NullLogger<ScoringAgent>.Instance);
+
+        var verdicts = await agent.RunAsync();
+
+        Assert.Equal(3, verdicts.Count);
+        Assert.Equal(VerdictChange.New, verdicts.Single(v => v.Decision.EventSlug == "fresh").Change);
+        Assert.Equal(VerdictChange.Changed, verdicts.Single(v => v.Decision.EventSlug == "flipper").Change);
+        Assert.Equal(VerdictChange.Unchanged, verdicts.Single(v => v.Decision.EventSlug == "steady").Change);
+        Assert.Equal(EventCategory.SubmitNow, verdicts.Single(v => v.Decision.EventSlug == "flipper").PriorCategory);
+        Assert.Equal(3, api.Posted.Count); // every decision is posted back
+    }
+
+    private static EventRecord Candidate(string slug, EventCategory category, string? decidedBy) => new()
+    {
+        Slug = slug,
+        Name = slug,
+        EventType = EventType.Conference,
+        Category = category,
+        Priority = Priority.Medium,
+        DecidedByAgent = decidedBy,
+    };
+
+    private static string ModelJson(Recommendation rec) =>
+        $$"""{"eventSlug":"ignored","recommendation":"{{rec}}","rationale":"x","fitScore":6,"effortScore":5,"confidenceScore":6}""";
+
+    [Fact]
     public async Task ScoreAsync_overrides_slug_when_model_echoes_a_different_one()
     {
         var chat = new FakeChatClient();
@@ -138,6 +177,9 @@ public class ScoringAgentTests
 
 internal sealed class FakeApiClient : ISpeakerPipelineApiClient
 {
+    public List<EventRecord> Candidates { get; } = [];
+    public List<ScoringDecision> Posted { get; } = [];
+
     public Task<IReadOnlyList<EventRecord>> GetEventsAsync(IReadOnlyList<EventCategory>? categories = null, TimeSpan? deadlineWindow = null, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<EventRecord>>([]);
     public Task<EventRecord?> GetEventAsync(string slug, CancellationToken ct = default) => Task.FromResult<EventRecord?>(null);
@@ -147,8 +189,8 @@ internal sealed class FakeApiClient : ISpeakerPipelineApiClient
     public Task<IReadOnlyList<TalkRecord>> GetTalksAsync(Lane? lane = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TalkRecord>>([]);
     public Task<TalkRecord?> GetTalkAsync(string slug, CancellationToken ct = default) => Task.FromResult<TalkRecord?>(null);
     public Task<TalkRecord> UpsertTalkAsync(TalkRecord record, CancellationToken ct = default) => Task.FromResult(record);
-    public Task<IReadOnlyList<EventRecord>> GetScoringCandidatesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventRecord>>([]);
-    public Task PostScoringDecisionAsync(ScoringDecision decision, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<IReadOnlyList<EventRecord>> GetScoringCandidatesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventRecord>>([.. Candidates]);
+    public Task PostScoringDecisionAsync(ScoringDecision decision, CancellationToken ct = default) { Posted.Add(decision); return Task.CompletedTask; }
     public Task<PipelineContext> GetPipelineContextAsync(CancellationToken ct = default) => Task.FromResult(PipelineContext.Empty);
     public Task<IReadOnlyList<TopicRecord>> GetTopicsAsync(TopicStage? stage = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TopicRecord>>([]);
     public Task<TopicRecord?> GetTopicAsync(string topicId, CancellationToken ct = default) => Task.FromResult<TopicRecord?>(null);

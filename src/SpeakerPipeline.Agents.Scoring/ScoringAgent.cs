@@ -50,7 +50,7 @@ public sealed class ScoringAgent
     /// back. Returns the decisions produced (in order) for observability and
     /// for tests.
     /// </summary>
-    public async Task<IReadOnlyList<ScoringDecision>> RunAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScoredVerdict>> RunAsync(CancellationToken ct = default)
     {
         using var runActivity = ActivitySource.StartActivity("scoring-agent.run");
         runActivity?.SetTag("agent.name", _options.AgentName);
@@ -74,15 +74,15 @@ public sealed class ScoringAgent
         runActivity?.SetTag("context.committed", context.Committed.Count);
         runActivity?.SetTag("context.blackouts", context.Blackouts.Count);
 
-        var decisions = new List<ScoringDecision>(capped.Length);
+        var verdicts = new List<ScoredVerdict>(capped.Length);
 
         foreach (var ev in capped)
         {
             try
             {
-                var decision = await ScoreAsync(ev, talks, context, ct);
-                await _api.PostScoringDecisionAsync(decision, ct);
-                decisions.Add(decision);
+                // Capture the prior state before posting the decision overwrites it.
+                var change = ClassifyChange(ev, await ScoreThenPost(ev, talks, context, ct));
+                verdicts.Add(change);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -90,8 +90,34 @@ public sealed class ScoringAgent
             }
         }
 
-        runActivity?.SetTag("decisions.count", decisions.Count);
-        return decisions;
+        runActivity?.SetTag("decisions.count", verdicts.Count);
+        runActivity?.SetTag("verdicts.changed", verdicts.Count(v => v.Change == VerdictChange.Changed));
+        return verdicts;
+    }
+
+    private async Task<ScoringDecision> ScoreThenPost(
+        EventRecord ev, IReadOnlyList<TalkRecord> talks, PipelineContext context, CancellationToken ct)
+    {
+        var decision = await ScoreAsync(ev, talks, context, ct);
+        await _api.PostScoringDecisionAsync(decision, ct);
+        return decision;
+    }
+
+    /// <summary>
+    /// Classifies a fresh decision against the event's prior state: New when the
+    /// event was never scored, Changed when the recommendation moves it to a
+    /// different category (a verdict flip — the interesting signal), else Unchanged.
+    /// </summary>
+    private static ScoredVerdict ClassifyChange(EventRecord priorEvent, ScoringDecision decision)
+    {
+        var wasDecided = !string.IsNullOrWhiteSpace(priorEvent.DecidedByAgent);
+        var change = !wasDecided
+            ? VerdictChange.New
+            : ScoringMap.ToCategory(decision.Recommendation) != priorEvent.Category
+                ? VerdictChange.Changed
+                : VerdictChange.Unchanged;
+
+        return new ScoredVerdict(decision, priorEvent.Category, change);
     }
 
     /// <summary>
@@ -201,3 +227,9 @@ public sealed class ScoringAgent
         public string? RecommendedTalkSlug { get; init; }
     }
 }
+
+/// <summary>
+/// A scoring decision plus how it relates to what the tracker already held for
+/// the event — the input the digest uses to headline verdict flips.
+/// </summary>
+public sealed record ScoredVerdict(ScoringDecision Decision, EventCategory PriorCategory, VerdictChange Change);

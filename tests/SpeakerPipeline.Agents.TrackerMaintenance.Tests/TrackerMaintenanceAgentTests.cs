@@ -69,7 +69,7 @@ public class TrackerMaintenanceAgentTests
 
         var first = await agent.RunAsync();
 
-        Assert.Equal(2, first.Count);
+        Assert.Equal(2, first.Updates.Count);
         Assert.Equal(EventCategory.Submitted, api.Events["northwoods"].Category);
         Assert.Equal(EventCategory.Accepted, api.Events["great-lakes"].Category);
         Assert.Equal(EventCategory.Monitor, api.Events["driftless"].Category);   // no submissions → untouched
@@ -78,8 +78,43 @@ public class TrackerMaintenanceAgentTests
         api.Upserts = 0;
         var second = await agent.RunAsync();
 
-        Assert.Empty(second);         // nothing changed
-        Assert.Equal(0, api.Upserts); // and nothing written
+        Assert.Empty(second.Updates);  // nothing changed
+        Assert.Equal(0, api.Upserts);  // and nothing written
+    }
+
+    // --- FindUrgentDeadlines (B3) --------------------------------------------
+
+    private static readonly DateTimeOffset Now = new(2027, 1, 15, 0, 0, 0, TimeSpan.Zero);
+
+    private static EventRecord Deadlined(string slug, EventCategory category, DateTimeOffset? deadline, bool dnr = false) =>
+        Event(slug, category) with { CfpDeadline = deadline, DoNotResurface = dnr };
+
+    [Fact]
+    public void FindUrgentDeadlines_flags_submitnow_within_the_window_only()
+    {
+        var events = new[]
+        {
+            Deadlined("urgent", EventCategory.SubmitNow, Now.AddDays(3)),        // in window
+            Deadlined("on-edge", EventCategory.SubmitNow, Now.AddDays(7)),       // exactly at the cutoff
+            Deadlined("far", EventCategory.SubmitNow, Now.AddDays(20)),          // beyond window
+            Deadlined("past", EventCategory.SubmitNow, Now.AddDays(-1)),         // already closed
+            Deadlined("monitor", EventCategory.Monitor, Now.AddDays(2)),         // not SubmitNow
+            Deadlined("nodate", EventCategory.SubmitNow, null),                  // no deadline
+            Deadlined("skipped", EventCategory.SubmitNow, Now.AddDays(2), dnr: true), // do-not-resurface
+        };
+
+        var urgent = TrackerMaintenanceAgent.FindUrgentDeadlines(events, Now, urgentDays: 7);
+
+        Assert.Equal(["urgent", "on-edge"], urgent.Select(u => u.EventSlug)); // sorted by deadline
+        Assert.Equal(3, urgent[0].DaysRemaining);
+    }
+
+    [Fact]
+    public void FindUrgentDeadlines_is_empty_when_nothing_is_imminent()
+    {
+        var events = new[] { Deadlined("far", EventCategory.SubmitNow, Now.AddDays(30)) };
+
+        Assert.Empty(TrackerMaintenanceAgent.FindUrgentDeadlines(events, Now, urgentDays: 7));
     }
 
     // --- helpers -------------------------------------------------------------
