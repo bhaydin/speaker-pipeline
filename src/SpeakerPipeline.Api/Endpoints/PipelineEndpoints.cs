@@ -43,11 +43,14 @@ public static class PipelineEndpoints
         var talkList = await talks.GetAllAsync(ct);
         var blackoutList = await blackouts.GetAllAsync(ct);
 
-        var submissionsByEvent = new Dictionary<string, IReadOnlyList<SubmissionRecord>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var e in relevant)
+        var submissionTasks = relevant.Select(async e =>
         {
-            submissionsByEvent[e.Slug] = await submissions.GetForEventAsync(e.Slug, ct);
-        }
+            var list = await submissions.GetForEventAsync(e.Slug, ct);
+            return (e.Slug, List: (IReadOnlyList<SubmissionRecord>)list);
+        });
+
+        var submissionsByEvent = (await Task.WhenAll(submissionTasks))
+            .ToDictionary(x => x.Slug, x => x.List, StringComparer.OrdinalIgnoreCase);
 
         var context = PipelineContextAssembler.Assemble(
             relevant, submissionsByEvent, talkList, blackoutList, DateTimeOffset.UtcNow);
