@@ -92,15 +92,15 @@ public sealed partial class DiscoveryAgent
 
             // Structured feeds arrive pre-extracted (no LLM); raw pages are extracted here.
             ExtractedEvent extracted;
-            if (candidate.Extracted is not null)
+            if (candidate is { Extracted: { } structured, Page: null })
             {
-                extracted = candidate.Extracted;
+                extracted = structured;
             }
-            else
+            else if (candidate is { Extracted: null, Page: { } page })
             {
                 try
                 {
-                    var (e, inTok, outTok) = await ExtractAsync(candidate.Page!, ct);
+                    var (e, inTok, outTok) = await ExtractAsync(page, ct);
                     extracted = e;
                     inputTokens += inTok;
                     outputTokens += outTok;
@@ -111,6 +111,16 @@ public sealed partial class DiscoveryAgent
                     Drop("extract_failed");
                     continue;
                 }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Discovery: dropped invalid candidate for {Url} (hasPage={HasPage}, hasExtracted={HasExtracted})",
+                    candidate.Url,
+                    candidate.Page is not null,
+                    candidate.Extracted is not null);
+                Drop("invalid_candidate");
+                continue;
             }
 
             if (!extracted.IsEvent || string.IsNullOrWhiteSpace(extracted.EventName))
