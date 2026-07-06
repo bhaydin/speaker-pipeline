@@ -20,11 +20,11 @@ public sealed class ScoringAgentHttpTrigger(ScoringAgent agent, INotifier notifi
         CancellationToken ct)
     {
         logger.LogInformation("Scoring agent run starting (manual).");
-        var decisions = await agent.RunAsync(ct);
-        await notifier.NotifyAsync(ScoringDigest.Build(decisions), ct);
+        var verdicts = await agent.RunAsync(ct);
+        await ScoringNotification.SendAsync(notifier, verdicts, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(new { count = decisions.Count, decisions }, ct);
+        await response.WriteAsJsonAsync(new { count = verdicts.Count, verdicts }, ct);
         return response;
     }
 }

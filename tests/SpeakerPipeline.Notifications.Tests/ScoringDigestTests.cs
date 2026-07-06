@@ -5,15 +5,10 @@ namespace SpeakerPipeline.Notifications.Tests;
 
 public class ScoringDigestTests
 {
-    private static ScoringDecision Decision(string slug, Recommendation rec, int fit) => new()
-    {
-        EventSlug = slug,
-        Recommendation = rec,
-        Rationale = "because",
-        FitScore = fit,
-        EffortScore = 3,
-        ConfidenceScore = 7,
-    };
+    private static ScoredVerdictView Verdict(
+        string slug, Recommendation rec, int fit,
+        VerdictChange change = VerdictChange.New, EventCategory prior = EventCategory.Monitor) =>
+        new(slug, rec, fit, EffortScore: 3, PriorCategory: prior, Change: change);
 
     [Fact]
     public void Build_on_empty_run_still_returns_a_heartbeat_notification()
@@ -27,14 +22,14 @@ public class ScoringDigestTests
     [Fact]
     public void Build_summarizes_counts_and_highlights_actionable()
     {
-        var decisions = new[]
+        var verdicts = new[]
         {
-            Decision("northwoods", Recommendation.SubmitNow, 9),
-            Decision("driftless", Recommendation.Outreach, 6),
-            Decision("far-away", Recommendation.Monitor, 4),
+            Verdict("northwoods", Recommendation.SubmitNow, 9),
+            Verdict("driftless", Recommendation.Outreach, 6),
+            Verdict("far-away", Recommendation.Monitor, 4),
         };
 
-        var n = ScoringDigest.Build(decisions);
+        var n = ScoringDigest.Build(verdicts);
 
         Assert.Contains("3 scored", n.Subject);
         Assert.Contains("1 SubmitNow", n.Subject);
@@ -44,15 +39,31 @@ public class ScoringDigestTests
     }
 
     [Fact]
-    public void Build_orders_highlights_by_fit_descending()
+    public void Build_headlines_verdict_flips()
     {
-        var decisions = new[]
+        var verdicts = new[]
         {
-            Decision("low-fit", Recommendation.SubmitNow, 5),
-            Decision("high-fit", Recommendation.SubmitNow, 10),
+            Verdict("flipped", Recommendation.Monitor, 8, VerdictChange.Changed, prior: EventCategory.SubmitNow),
+            Verdict("steady", Recommendation.SubmitNow, 9, VerdictChange.Unchanged, prior: EventCategory.SubmitNow),
         };
 
-        var body = ScoringDigest.Build(decisions).HtmlBody;
+        var n = ScoringDigest.Build(verdicts);
+
+        Assert.Contains("1 flipped", n.Subject);
+        Assert.Contains("Verdict flips (1)", n.HtmlBody);
+        Assert.Contains("SubmitNow → Monitor", n.HtmlBody);   // shows the direction of the flip
+    }
+
+    [Fact]
+    public void Build_orders_highlights_by_fit_descending()
+    {
+        var verdicts = new[]
+        {
+            Verdict("low-fit", Recommendation.SubmitNow, 5),
+            Verdict("high-fit", Recommendation.SubmitNow, 10),
+        };
+
+        var body = ScoringDigest.Build(verdicts).HtmlBody;
 
         Assert.True(body.IndexOf("high-fit", StringComparison.Ordinal) < body.IndexOf("low-fit", StringComparison.Ordinal));
     }
@@ -60,7 +71,7 @@ public class ScoringDigestTests
     [Fact]
     public void Build_sets_no_dedupe_key_so_every_run_sends()
     {
-        var n = ScoringDigest.Build([Decision("x", Recommendation.Monitor, 5)]);
+        var n = ScoringDigest.Build([Verdict("x", Recommendation.Monitor, 5)]);
         Assert.Null(n.DedupeKey);
     }
 }

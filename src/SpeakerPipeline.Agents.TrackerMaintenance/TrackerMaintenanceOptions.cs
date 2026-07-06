@@ -15,4 +15,11 @@ public sealed class TrackerMaintenanceOptions
     /// the table is small (&lt;200 rows) so the default covers the whole set.
     /// </summary>
     public int MaxEventsPerRun { get; set; } = 200;
+
+    /// <summary>
+    /// A <see cref="EventCategory.SubmitNow"/> event whose CFP deadline falls
+    /// within this many days is flagged urgent. The daily run gives day-level
+    /// coverage instead of waiting for the weekly scoring digest.
+    /// </summary>
+    public int UrgentDeadlineDays { get; set; } = 7;
 }

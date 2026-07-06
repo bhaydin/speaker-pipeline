@@ -20,11 +20,12 @@ public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent,
         CancellationToken ct)
     {
         logger.LogInformation("Tracker-maintenance run starting (manual).");
-        var updates = await agent.RunAsync(ct);
-        await TrackerNotification.SendAsync(notifier, updates, ct);
+        var result = await agent.RunAsync(ct);
+        await TrackerNotification.SendUrgentDeadlinesAsync(notifier, result.UrgentDeadlines, ct);
+        await TrackerNotification.SendAsync(notifier, result.Updates, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(new { count = updates.Count, updates }, ct);
+        await response.WriteAsJsonAsync(new { count = result.Updates.Count, result.Updates, result.UrgentDeadlines }, ct);
         return response;
     }
 }

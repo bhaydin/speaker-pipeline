@@ -76,6 +76,32 @@ public class NotificationsTests
         Assert.Contains("7 search queries", n.HtmlBody);
     }
 
+    // --- UrgentDeadlineNotice ------------------------------------------------
+
+    [Fact]
+    public void UrgentDeadline_is_urgent_and_dedupe_keyed_per_event_and_date()
+    {
+        var deadline = new DateTimeOffset(2027, 3, 1, 0, 0, 0, TimeSpan.Zero);
+
+        var n = UrgentDeadlineNotice.Build("great-lakes-cloud-conf", "Great Lakes Cloud Conf", deadline, daysRemaining: 5);
+
+        Assert.Equal(NotificationUrgency.Urgent, n.Urgency);
+        Assert.Equal("deadline-great-lakes-cloud-conf-2027-03-01", n.DedupeKey);
+        Assert.Equal("great-lakes-cloud-conf", n.EntityRef);
+        Assert.Contains("closes in 5 days", n.Subject);
+        Assert.Contains("Great Lakes Cloud Conf", n.Subject);
+    }
+
+    [Theory]
+    [InlineData(0, "closes today")]
+    [InlineData(1, "closes tomorrow")]
+    [InlineData(3, "closes in 3 days")]
+    public void UrgentDeadline_phrases_days_remaining(int days, string expected)
+    {
+        var n = UrgentDeadlineNotice.Build("x", "X Conf", new DateTimeOffset(2027, 3, 1, 0, 0, 0, TimeSpan.Zero), days);
+        Assert.Contains(expected, n.Subject);
+    }
+
     // --- EmailLane payload ---------------------------------------------------
 
     [Fact]
