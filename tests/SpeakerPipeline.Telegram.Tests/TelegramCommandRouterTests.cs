@@ -8,8 +8,9 @@ public class TelegramCommandRouterTests
 {
     private const long AllowedChat = 100;
 
-    private static TelegramCommandRouter Router(FakeApiClient api) => new(
+    private static TelegramCommandRouter Router(FakeApiClient api, FakeIngestService? ingest = null) => new(
         api,
+        ingest ?? new FakeIngestService(),
         Options.Create(new TelegramOptions { Enabled = true, BotToken = "t", ChatId = AllowedChat, WebhookSecret = "s" }),
         NullLogger<TelegramCommandRouter>.Instance);
 
@@ -94,6 +95,45 @@ public class TelegramCommandRouterTests
         var (slug, request) = Assert.Single(api.Actions);
         Assert.Equal("driftless", slug);
         Assert.Equal(PipelineAction.Skip, request.Action);
+    }
+
+    [Fact]
+    public async Task Track_ingests_url_and_records_note()
+    {
+        var ingest = new FakeIngestService();
+
+        var reply = await Router(new FakeApiClient(), ingest).RouteAsync(Msg("/track https://sessionize.com/foo important cfp"));
+
+        var (url, note) = Assert.Single(ingest.Calls);
+        Assert.Equal("https://sessionize.com/foo", url);
+        Assert.Equal("important cfp", note);
+        Assert.Contains("Great Lakes Cloud Conf", reply!.Text);
+        Assert.Contains("great-lakes-cloud-conf", reply.Text); // slug shown for follow-up
+    }
+
+    [Fact]
+    public async Task Track_without_url_returns_usage_and_ingests_nothing()
+    {
+        var ingest = new FakeIngestService();
+
+        var reply = await Router(new FakeApiClient(), ingest).RouteAsync(Msg("/track"));
+
+        Assert.Empty(ingest.Calls);
+        Assert.Contains("Usage", reply!.Text);
+    }
+
+    [Fact]
+    public async Task Promote_moves_a_quarantined_event_to_monitor()
+    {
+        var api = new FakeApiClient();
+        api.Events["maybe-conf"] = Event("maybe-conf", "Maybe Conf", EventCategory.Quarantine);
+
+        var reply = await Router(api).RouteAsync(Msg("/promote maybe-conf"));
+
+        var (slug, request) = Assert.Single(api.Actions);
+        Assert.Equal("maybe-conf", slug);
+        Assert.Equal(PipelineAction.Monitor, request.Action);
+        Assert.Contains("queued for scoring", reply!.Text);
     }
 
     [Fact]

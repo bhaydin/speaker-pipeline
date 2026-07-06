@@ -21,7 +21,7 @@ public sealed class SearchSource(
 {
     private readonly SearchOptions _options = options.Value;
 
-    public async Task<IReadOnlyList<SourcePage>> FetchAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<DiscoveryCandidate>> FetchAsync(CancellationToken ct = default)
     {
         if (!_options.Enabled || _options.Queries.Count == 0)
         {
@@ -38,11 +38,11 @@ public sealed class SearchSource(
             hits.AddRange(await search.SearchAsync(query, _options.MaxResultsPerQuery, ct));
         }
 
-        var candidates = Dedupe(hits);
-        logger.LogInformation("Search: {Hits} hits -> {Unique} unique candidate URLs", hits.Count, candidates.Count);
+        var deduped = Dedupe(hits);
+        logger.LogInformation("Search: {Hits} hits -> {Unique} unique candidate URLs", hits.Count, deduped.Count);
 
-        var pages = new List<SourcePage>();
-        foreach (var hit in candidates)
+        var candidates = new List<DiscoveryCandidate>();
+        foreach (var hit in deduped)
         {
             try
             {
@@ -54,12 +54,12 @@ public sealed class SearchSource(
                 }
 
                 var html = await resp.Content.ReadAsStringAsync(ct);
-                pages.Add(new SourcePage(
+                candidates.Add(DiscoveryCandidate.ForPage(new SourcePage(
                     hit.Url,
                     UrlCanonicalizer.InferSource(hit.Url),
                     WatchlistSource.Normalize(html),
                     DiscoveredVia: hit.Query,
-                    MinConfidence: _options.MinConfidenceScore));
+                    MinConfidence: _options.MinConfidenceScore)));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -67,7 +67,7 @@ public sealed class SearchSource(
             }
         }
 
-        return pages;
+        return candidates;
     }
 
     /// <summary>

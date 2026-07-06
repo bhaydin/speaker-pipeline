@@ -45,6 +45,37 @@ public class NotificationsTests
         Assert.DoesNotContain("<Summit>", n.HtmlBody);
     }
 
+    [Fact]
+    public void DiscoveryDigest_lists_quarantine_and_counts_it_in_subject()
+    {
+        var quarantined = new[] { new DigestItem("Maybe Conf 2027", IsNew: true, "quarantined (confidence 3 < floor 4)") };
+
+        var n = DiscoveryDigest.Build([], quarantined);
+
+        Assert.Contains("1 to review", n.Subject);
+        Assert.Contains("Quarantine (1)", n.HtmlBody);
+        Assert.Contains("Maybe Conf 2027", n.HtmlBody);
+    }
+
+    [Fact]
+    public void DiscoveryDigest_renders_funnel_and_spend()
+    {
+        var funnel = new DiscoveryFunnelView(
+            Targets: 40, Extracted: 30, PassedFloor: 25, New: 5, Updated: 2, Quarantined: 3,
+            Dropped: new Dictionary<string, int> { ["unchanged"] = 18, ["low_confidence"] = 2 },
+            CandidatesBySource: new Dictionary<string, int> { ["ConfsTech"] = 35, ["Sessionize"] = 5 },
+            InputTokens: 12_000, OutputTokens: 3_000, SearchQueries: 7);
+
+        var n = DiscoveryDigest.Build([new DigestItem("X", true, "new")], [], funnel);
+
+        Assert.Contains("40 candidates", n.HtmlBody);
+        Assert.Contains("Funnel", n.HtmlBody);
+        Assert.Contains("unchanged: 18", n.HtmlBody);
+        Assert.Contains("ConfsTech: 35", n.HtmlBody);
+        Assert.Contains("15,000 tokens", n.HtmlBody);   // 12k in + 3k out
+        Assert.Contains("7 search queries", n.HtmlBody);
+    }
+
     // --- EmailLane payload ---------------------------------------------------
 
     [Fact]
