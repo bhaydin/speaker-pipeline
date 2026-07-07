@@ -49,8 +49,8 @@ public class TrackerDigestTests
 
         var n = TrackerDigest.Build([], conflicts);
 
-        Assert.Contains("2 conflicts", n.Subject);
-        Assert.Contains("Conflict flags (2)", n.HtmlBody);
+        Assert.Contains("2 conflict flag changes", n.Subject);
+        Assert.Contains("Conflict flag changes (2)", n.HtmlBody);
         Assert.Contains("family blackout overlap", n.HtmlBody);
     }
 
@@ -62,6 +62,6 @@ public class TrackerDigestTests
             [new DigestItem("b", IsNew: false, "family blackout overlap")]);
 
         Assert.Contains("1 changed", n.Subject);
-        Assert.Contains("1 conflict", n.Subject);
+        Assert.Contains("1 conflict flag change", n.Subject);
     }
 }

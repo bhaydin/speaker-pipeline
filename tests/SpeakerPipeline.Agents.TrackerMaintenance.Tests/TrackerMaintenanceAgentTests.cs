@@ -220,6 +220,26 @@ public class TrackerMaintenanceAgentTests
         Assert.Equal(0, api.Upserts);
     }
 
+    [Fact]
+    public async Task RunAsync_evaluates_prep_conflicts_against_categories_derived_in_the_same_run()
+    {
+        var api = new FakeApiClient();
+        api.Events["becomes-accepted"] = Dated("becomes-accepted", EventCategory.Submitted, Now.AddDays(20));
+        api.Events["target"] = Dated("target", EventCategory.SubmitNow, Now.AddDays(30));
+        api.Events["already-delivered"] = Dated("already-delivered", EventCategory.Delivered, Now.AddDays(40));
+        api.Submissions["becomes-accepted"] = [Sub("becomes-accepted", SubmissionStatus.Accepted)];
+
+        var agent = new TrackerMaintenanceAgent(api, Options.Create(new TrackerMaintenanceOptions()), NullLogger<TrackerMaintenanceAgent>.Instance);
+
+        var result = await agent.RunAsync();
+
+        Assert.Equal(EventCategory.Accepted, api.Events["becomes-accepted"].Category);
+        var change = Assert.Single(result.ConflictChanges);
+        Assert.Equal("target", change.EventSlug);
+        Assert.True(change.Prep);
+        Assert.True(api.Events["target"].PrepConflictFlag);
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static EventRecord Event(string slug, EventCategory category) => new()

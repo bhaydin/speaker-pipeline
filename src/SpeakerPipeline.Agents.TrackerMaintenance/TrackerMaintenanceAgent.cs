@@ -48,15 +48,17 @@ public sealed class TrackerMaintenanceAgent
 
         var events = await _api.GetEventsAsync(ct: ct);
         var blackouts = await _api.GetBlackoutsAsync(ct);
-        var considered = 0;
+        var selectedEvents = events.Take(_options.MaxEventsPerRun).ToArray();
+        var considered = selectedEvents.Length;
         var updates = new List<TrackerUpdate>();
         var conflicts = new List<ConflictChange>();
 
-        foreach (var ev in events.Take(_options.MaxEventsPerRun))
-        {
-            considered++;
+        var pendingEvents = new List<(EventRecord Event, EventCategory NewCategory)>();
 
-            // Terminal categories are left alone — including their conflict flags.
+        foreach (var ev in selectedEvents)
+        {
+            // Terminal categories are left alone — including their conflict flags —
+            // but still stay in the committed-engagement snapshot as-is.
             if (ev.Category is EventCategory.Delivered or EventCategory.Skip)
             {
                 continue;
@@ -65,10 +67,22 @@ public sealed class TrackerMaintenanceAgent
             var submissions = await _api.GetSubmissionsForEventAsync(ev.Slug, ct);
             var derived = DeriveCategory(ev.Category, submissions.Select(s => s.Status));
             var newCategory = derived is { } d && d != ev.Category ? d : ev.Category;
+            pendingEvents.Add((ev, newCategory));
+        }
+
+        var effectiveCategories = pendingEvents.ToDictionary(p => p.Event.Slug, p => p.NewCategory, StringComparer.OrdinalIgnoreCase);
+        var effectiveEvents = events
+            .Select(ev => effectiveCategories.TryGetValue(ev.Slug, out var category)
+                ? ev with { Category = category }
+                : ev)
+            .ToArray();
+
+        foreach (var (ev, newCategory) in pendingEvents)
+        {
 
             // Deterministic conflict flags from blackouts + committed engagements (C1).
             var (family, prep) = ConflictEvaluator.Evaluate(
-                ev, blackouts, events, _options.PrepWindowDays, _options.PrepCongestionThreshold);
+                ev, blackouts, effectiveEvents, _options.PrepWindowDays, _options.PrepCongestionThreshold);
 
             var categoryChanged = newCategory != ev.Category;
             var flagsChanged = family != ev.FamilyConflictFlag || prep != ev.PrepConflictFlag;

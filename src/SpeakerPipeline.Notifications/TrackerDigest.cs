@@ -35,7 +35,7 @@ public static class TrackerDigest
 
         if (conflicts.Count > 0)
         {
-            body.Append($"<h3>Conflict flags ({conflicts.Count})</h3><ul>");
+            body.Append($"<h3>Conflict flag changes ({conflicts.Count})</h3><ul>");
             foreach (var item in conflicts.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase))
             {
                 body.Append($"<li><strong>{Encode(item.Title)}</strong> — {Encode(item.Detail)}</li>");
@@ -50,7 +50,7 @@ public static class TrackerDigest
         }
         if (conflicts.Count > 0)
         {
-            parts.Add($"{conflicts.Count} conflict{(conflicts.Count == 1 ? "" : "s")}");
+            parts.Add($"{conflicts.Count} conflict flag change{(conflicts.Count == 1 ? "" : "s")}");
         }
         var tail = parts.Count == 0 ? "no changes" : string.Join(", ", parts);
 

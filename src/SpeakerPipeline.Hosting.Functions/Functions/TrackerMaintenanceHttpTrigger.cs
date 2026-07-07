@@ -25,8 +25,9 @@ public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent,
         await TrackerNotification.SendAsync(notifier, result.Updates, result.ConflictChanges, ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
+        var changeCount = result.Updates.Count + result.ConflictChanges.Count;
         await response.WriteAsJsonAsync(
-            new { count = result.Updates.Count, result.Updates, result.ConflictChanges, result.UrgentDeadlines }, ct);
+            new { count = changeCount, result.Updates, result.ConflictChanges, result.UrgentDeadlines }, ct);
         return response;
     }
 }
