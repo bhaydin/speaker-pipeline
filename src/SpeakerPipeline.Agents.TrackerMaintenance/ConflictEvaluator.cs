@@ -29,6 +29,9 @@ public static class ConflictEvaluator
         int prepWindowDays,
         int prepThreshold)
     {
+        if (prepWindowDays < 0) throw new ArgumentOutOfRangeException(nameof(prepWindowDays), "Must be >= 0.");
+        if (prepThreshold < 1) throw new ArgumentOutOfRangeException(nameof(prepThreshold), "Must be >= 1.");
+
         if (ev.EventDateStart is not { } start)
         {
             return (false, false);
