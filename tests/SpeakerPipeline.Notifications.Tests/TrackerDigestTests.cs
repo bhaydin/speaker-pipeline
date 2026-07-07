@@ -37,4 +37,31 @@ public class TrackerDigestTests
 
         Assert.Contains("dev &amp; ops", n.HtmlBody);
     }
+
+    [Fact]
+    public void Build_lists_conflict_flags_and_counts_them_in_subject()
+    {
+        var conflicts = new[]
+        {
+            new DigestItem("keweenaw-agentops", IsNew: false, "family blackout overlap"),
+            new DigestItem("great-lakes", IsNew: false, "prep congestion"),
+        };
+
+        var n = TrackerDigest.Build([], conflicts);
+
+        Assert.Contains("2 conflict flag changes", n.Subject);
+        Assert.Contains("Conflict flag changes (2)", n.HtmlBody);
+        Assert.Contains("family blackout overlap", n.HtmlBody);
+    }
+
+    [Fact]
+    public void Build_combines_category_changes_and_conflicts_in_subject()
+    {
+        var n = TrackerDigest.Build(
+            [new DigestItem("a", IsNew: false, "SubmitNow → Submitted")],
+            [new DigestItem("b", IsNew: false, "family blackout overlap")]);
+
+        Assert.Contains("1 changed", n.Subject);
+        Assert.Contains("1 conflict flag change", n.Subject);
+    }
 }

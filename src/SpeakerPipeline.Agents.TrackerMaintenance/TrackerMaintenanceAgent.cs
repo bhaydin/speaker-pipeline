@@ -47,13 +47,18 @@ public sealed class TrackerMaintenanceAgent
         runActivity?.SetTag("agent.version", _options.AgentVersion);
 
         var events = await _api.GetEventsAsync(ct: ct);
-        var considered = 0;
+        var blackouts = await _api.GetBlackoutsAsync(ct);
+        var selectedEvents = events.Take(_options.MaxEventsPerRun).ToArray();
+        var considered = selectedEvents.Length;
         var updates = new List<TrackerUpdate>();
+        var conflicts = new List<ConflictChange>();
 
-        foreach (var ev in events.Take(_options.MaxEventsPerRun))
+        var pendingEvents = new List<(EventRecord Event, EventCategory NewCategory)>();
+
+        foreach (var ev in selectedEvents)
         {
-            considered++;
-
+            // Terminal categories are left alone — including their conflict flags —
+            // but still stay in the committed-engagement snapshot as-is.
             if (ev.Category is EventCategory.Delivered or EventCategory.Skip)
             {
                 continue;
@@ -61,22 +66,55 @@ public sealed class TrackerMaintenanceAgent
 
             var submissions = await _api.GetSubmissionsForEventAsync(ev.Slug, ct);
             var derived = DeriveCategory(ev.Category, submissions.Select(s => s.Status));
-            if (derived is null || derived == ev.Category)
+            var newCategory = derived is { } d && d != ev.Category ? d : ev.Category;
+            pendingEvents.Add((ev, newCategory));
+        }
+
+        var effectiveCategories = pendingEvents.ToDictionary(p => p.Event.Slug, p => p.NewCategory, StringComparer.OrdinalIgnoreCase);
+        var effectiveEvents = events
+            .Select(ev => effectiveCategories.TryGetValue(ev.Slug, out var category)
+                ? ev with { Category = category }
+                : ev)
+            .ToArray();
+
+        foreach (var (ev, newCategory) in pendingEvents)
+        {
+
+            // Deterministic conflict flags from blackouts + committed engagements (C1).
+            var (family, prep) = ConflictEvaluator.Evaluate(
+                ev, blackouts, effectiveEvents, _options.PrepWindowDays, _options.PrepCongestionThreshold);
+
+            var categoryChanged = newCategory != ev.Category;
+            var flagsChanged = family != ev.FamilyConflictFlag || prep != ev.PrepConflictFlag;
+            if (!categoryChanged && !flagsChanged)
             {
                 continue;
             }
 
             var updated = ev with
             {
-                Category = derived.Value,
-                StatusDetail = $"Category set to {derived.Value} from submission status by {_options.AgentName}-{_options.AgentVersion}.",
+                Category = newCategory,
+                FamilyConflictFlag = family,
+                PrepConflictFlag = prep,
+                // A category change owns StatusDetail; a flag-only change leaves it intact.
+                StatusDetail = categoryChanged
+                    ? $"Category set to {newCategory} from submission status by {_options.AgentName}-{_options.AgentVersion}."
+                    : ev.StatusDetail,
             };
 
             try
             {
                 await _api.UpsertEventAsync(updated, ct);
-                updates.Add(new TrackerUpdate(ev.Slug, ev.Category, derived.Value));
-                _logger.LogInformation("Tracker: {Slug} {From} -> {To}", ev.Slug, ev.Category, derived.Value);
+                if (categoryChanged)
+                {
+                    updates.Add(new TrackerUpdate(ev.Slug, ev.Category, newCategory));
+                    _logger.LogInformation("Tracker: {Slug} {From} -> {To}", ev.Slug, ev.Category, newCategory);
+                }
+                if (flagsChanged)
+                {
+                    conflicts.Add(new ConflictChange(ev.Slug, family, prep));
+                    _logger.LogInformation("Tracker: {Slug} conflicts family={Family} prep={Prep}", ev.Slug, family, prep);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -90,10 +128,11 @@ public sealed class TrackerMaintenanceAgent
 
         runActivity?.SetTag("events.considered", considered);
         runActivity?.SetTag("events.updated", updates.Count);
+        runActivity?.SetTag("events.conflicts", conflicts.Count);
         runActivity?.SetTag("deadlines.urgent", urgent.Count);
-        _logger.LogInformation("Tracker-maintenance run complete. {Updated}/{Considered} updated, {Urgent} urgent deadlines.",
-            updates.Count, considered, urgent.Count);
-        return new TrackerMaintenanceResult(updates, urgent);
+        _logger.LogInformation("Tracker-maintenance run complete. {Updated}/{Considered} updated, {Conflicts} conflict changes, {Urgent} urgent deadlines.",
+            updates.Count, considered, conflicts.Count, urgent.Count);
+        return new TrackerMaintenanceResult(updates, conflicts, urgent);
     }
 
     /// <summary>
@@ -168,10 +207,14 @@ public sealed class TrackerMaintenanceAgent
 /// <summary>A category change the tracker applied to one event.</summary>
 public sealed record TrackerUpdate(string EventSlug, EventCategory From, EventCategory To);
 
+/// <summary>A change to an event's conflict flags on this run.</summary>
+public sealed record ConflictChange(string EventSlug, bool Family, bool Prep);
+
 /// <summary>A SubmitNow event whose CFP deadline is imminent (within the urgency window).</summary>
 public sealed record UrgentDeadline(string EventSlug, string EventName, DateTimeOffset Deadline, int DaysRemaining);
 
-/// <summary>The full outcome of a tracker-maintenance run: category reconciles and imminent deadlines.</summary>
+/// <summary>The full outcome of a tracker-maintenance run: category reconciles, conflict changes, imminent deadlines.</summary>
 public sealed record TrackerMaintenanceResult(
     IReadOnlyList<TrackerUpdate> Updates,
+    IReadOnlyList<ConflictChange> ConflictChanges,
     IReadOnlyList<UrgentDeadline> UrgentDeadlines);

@@ -72,9 +72,11 @@ az role assignment create \
 | `TravelBurden` | string |  | `None` / `Low` / `Medium` / `High` |
 | `NextAction` | string |  | Verb-first imperative — what gets done next |
 | `Notes` | string |  | Free text |
-| `SourceSeenOn` | string |  | `Sessionize` / `PaperCall` / `CfpNinja` / `Meetup` / `GlobalAI` / `Direct` / `Manual` |
+| `SourceSeenOn` | string |  | `Sessionize` / `PaperCall` / `CfpNinja` / `Meetup` / `GlobalAI` / `ConfsTech` / `Direct` / `Manual` |
 | `LastVerifiedUtc` | DateTime |  | Set by verification agent on each live-page check |
 | `DoNotResurface` | bool |  | `true` for the explicit skip list |
+| `FamilyConflictFlag` | bool |  | Set by the conflict engine when the event's dates overlap a **hard** blackout. Recomputed each tracker-maintenance run; consumed by the scoring context. |
+| `PrepConflictFlag` | bool |  | Set by the conflict engine when committed engagements crowd the surrounding weeks (prep congestion). Recomputed each run. |
 | `DiscoveredByAgent` | string |  | Agent name (e.g. `sessionize-scanner`) for provenance |
 | `DecidedByAgent` | string |  | Agent name (e.g. `scoring-agent-v1`) |
 | `SchemaVersion` | int |  | `1` initially. Lets you migrate later without rewriting all rows. |

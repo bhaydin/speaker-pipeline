@@ -12,8 +12,9 @@ namespace SpeakerPipeline.Notifications;
 /// </summary>
 public static class TrackerDigest
 {
-    public static Notification Build(IReadOnlyList<DigestItem> items)
+    public static Notification Build(IReadOnlyList<DigestItem> items, IReadOnlyList<DigestItem>? conflicts = null)
     {
+        conflicts ??= [];
         var body = new StringBuilder();
         body.Append("<h2>Tracker maintenance run</h2>");
 
@@ -32,7 +33,26 @@ public static class TrackerDigest
             body.Append("</ul>");
         }
 
-        var tail = items.Count == 0 ? "no changes" : $"{items.Count} changed";
+        if (conflicts.Count > 0)
+        {
+            body.Append($"<h3>Conflict flag changes ({conflicts.Count})</h3><ul>");
+            foreach (var item in conflicts.OrderBy(i => i.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                body.Append($"<li><strong>{Encode(item.Title)}</strong> — {Encode(item.Detail)}</li>");
+            }
+            body.Append("</ul>");
+        }
+
+        var parts = new List<string>();
+        if (items.Count > 0)
+        {
+            parts.Add($"{items.Count} changed");
+        }
+        if (conflicts.Count > 0)
+        {
+            parts.Add($"{conflicts.Count} conflict flag change{(conflicts.Count == 1 ? "" : "s")}");
+        }
+        var tail = parts.Count == 0 ? "no changes" : string.Join(", ", parts);
 
         return new Notification
         {

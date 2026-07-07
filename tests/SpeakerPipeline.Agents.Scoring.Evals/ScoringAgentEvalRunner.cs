@@ -32,7 +32,7 @@ public class ScoringAgentEvalRunner
     public async Task Runs_full_golden_set_and_writes_report()
     {
         var goldens = LoadGoldens();
-        Assert.True(goldens.Cases.Count >= 14, $"Expected at least 14 golden cases, got {goldens.Cases.Count}");
+        Assert.True(goldens.Cases.Count >= 15, $"Expected at least 15 golden cases, got {goldens.Cases.Count}");
 
         var chat = CreateChatClient();
         var options = Options.Create(new ScoringAgentOptions

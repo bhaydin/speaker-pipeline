@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rubricVersion": "v2",
+  "rubricVersion": "v3",
   "cases": [
     {
       "id": "clear-submit-now-hometown-agentops",
@@ -311,6 +311,28 @@
       },
       "expectedRecommendation": "SubmitNow",
       "rationaleKeywords": ["deadline", "AgentOps"]
+    },
+    {
+      "id": "conflict-flag-family-blackout",
+      "description": "C1: a strong AgentOps fit the tracker already flagged with a family blackout overlap. The confirmed flag alone must pull it off SubmitNow with a rationale naming the conflict.",
+      "event": {
+        "Slug": "keweenaw-agentops-days-2027",
+        "Name": "Keweenaw AgentOps Days 2027",
+        "EventType": "Conference",
+        "Category": "SubmitNow",
+        "Priority": "MediumHigh",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-07-10T00:00:00Z",
+        "CfpDeadline": "2027-04-01T23:59:00Z",
+        "Location": "Houghton, MI",
+        "Format": "InPerson",
+        "TravelBurden": "Low",
+        "Notes": "AgentOps track",
+        "FamilyConflictFlag": true
+      },
+      "expectedRecommendation": "Pass",
+      "expectedRecommendationAlternates": ["Monitor"],
+      "rationaleKeywords": ["conflict"]
     }
   ]
 }
