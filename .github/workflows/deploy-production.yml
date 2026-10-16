@@ -129,6 +129,21 @@ jobs:
             if [ "$attempt" = 18 ]; then echo '::error::API health did not recover'; exit 1; fi
             sleep 10
           done
+          token=$(az account get-access-token --scope "$API_SCOPE" --query accessToken -o tsv)
+          echo "::add-mask::$token"
+          # Managed identity can still be warming when static health first succeeds.
+          for attempt in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer $token" "https://$host/health/ready" || true)
+            echo "API dependency readiness attempt $attempt: HTTP $code"
+            case "$code" in
+              200) break ;;
+              000|408|429|500|502|503|504)
+                if [ "$attempt" = 12 ]; then echo "::error::API dependency readiness did not recover: $code"; exit 1; fi
+                ;;
+              *) echo "::error::API dependency readiness failed: $code"; exit 1 ;;
+            esac
+            sleep 10
+          done
           paths=(/health/ready /v1/events /v1/talks /v1/events/readiness-probe/submissions /v1/topics /v1/blackouts "/v1/notifications/$(date -u +%Y-%m)")
           for path in "${paths[@]}"; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://$host$path")
@@ -136,8 +151,6 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H 'Authorization: Bearer dev' "https://$host$path")
             test "$code" = 401 || { echo "::error::Invalid token accepted or auth failed on $path: $code"; exit 1; }
           done
-          token=$(az account get-access-token --scope "$API_SCOPE" --query accessToken -o tsv)
-          echo "::add-mask::$token"
           for path in "${paths[@]}"; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer $token" "https://$host$path")
             test "$code" = 200 || { echo "::error::Authenticated data check failed on $path: $code"; exit 1; }
