@@ -1,85 +1,97 @@
 # Speaking Pipeline — Agents
 
-An open, production-shaped reference for running a real personal speaking pipeline as a multi-agent system on Azure.
+A personal speaking pipeline and public AgentOps reference: discover opportunities,
+score their fit, reconcile submissions, and surface decisions through Telegram and
+email. The implementation runs on .NET, Azure Functions, an App Service API, and
+Azure AI Foundry models.
 
-## The two-platform hook
+## One production environment
 
-This repo deliberately combines two agent platforms. **Microsoft Agent Framework (MAF)** runs the cloud backbone — discovery, verification, scoring, and tracker maintenance agents hosted in Azure AI Foundry Agent Service. **OpenClaw** runs locally as the personal-AI surface layer — weekly digest, Telegram and Outlook interfaces, and the approval gate that sits in front of any outbound action. Both share **Azure AI Foundry** as the model layer, so prompts and tools target one model fabric, not two.
+The existing deployed API and Functions host are the single production estate.
+Physical resource names ending in `dev` are historical and stay in place; they
+do not represent a second environment. Development and fictional samples belong
+in local, isolated storage. No dev-to-prod promotion or replacement Azure stack
+is required.
 
-Why both: MAF is the right shape for scheduled, observable, multi-agent workloads behind managed identity. OpenClaw is the right shape for a single-operator surface that needs to feel like a personal AI rather than a SaaS dashboard. Treating them as complementary — rather than choosing one — is the case study.
+Follow the [production rollout runbook](docs/production-rollout.md) and the
+[deployment plan](.azure/deployment-plan.md) for release gates, the maintenance
+window, data cleanup, validation, and recovery. A repository change alone does
+not establish that the production cutover has passed its acceptance checks.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Cloud["Azure"]
-        subgraph MAF["MAF Agents — Foundry Agent Service"]
-            Disc["Discovery agents<br/>Sessionize · PaperCall<br/>CFP.ninja · Meetup · Global AI"]
-            Verify[Verification]
-            Score[Scoring]
-            Track[Tracker Maintenance]
-        end
-        Tables[("Azure Table Storage<br/>Events · Submissions · Talks")]
-        Foundry{{Azure AI Foundry}}
-        AppI[(Application Insights)]
+    Sources["Watchlist · confs.tech · search"] --> Agents
+    subgraph Azure["Single production estate"]
+        Agents["Azure Functions<br/>Discovery · Scoring · Tracker"]
+        API["App Service<br/>SpeakerPipeline.Api"]
+        Tables[("Table Storage<br/>Six business tables")]
+        Foundry["Azure AI Foundry models"]
+        Insights["Application Insights"]
+        Agents -->|Entra / managed identity| API
+        API -->|Managed identity| Tables
+        Agents --> Foundry
+        Agents -. telemetry .-> Insights
+        API -. telemetry .-> Insights
     end
-    subgraph Local["Local — Personal AI Surface"]
-        OC[OpenClaw runtime]
-        Surface["Telegram · Outlook<br/>Weekly digest"]
-    end
-
-    Disc --> Verify --> Score --> Track --> Tables
-    MAF -.-> Foundry
-    MAF -.->|OTel| AppI
-    OC --> Foundry
-    OC <--> Tables
-    OC --> Surface
-    Surface -. approvals .-> Score
+    Telegram[Telegram] <--> Agents
+    Agents --> Email["Email notifications"]
+    Operator["Operator migration CLI"] -->|API maintenance role| API
 ```
 
-See [docs/architecture-overview.md](docs/architecture-overview.md) for the prose walkthrough and [docs/architecture-table-storage.md](docs/architecture-table-storage.md) for the persistence-layer ground truth.
+Every consumer reaches data through the API. The API owns `Events`, `Submissions`,
+`Talks`, `Topics`, `Blackouts`, and `NotificationLog`. Agents have API access and
+model access; they do not need direct pipeline Table Storage access.
 
-## Tech stack
+The agent projects use the Microsoft Agent Framework ecosystem and
+`Microsoft.Extensions.AI.IChatClient`; **Azure Functions hosts the workload** and
+Foundry supplies model inference. MCP code exists in the repository but is not
+part of the deployed production footprint. OpenClaw and calendar integrations
+remain future work.
 
-- **Microsoft Agent Framework** — multi-agent runtime, hosted in Azure AI Foundry Agent Service
-- **OpenClaw** — local personal-AI runtime (`@openclaw/microsoft-foundry` plugin or LiteLLM bridge)
-- **Azure AI Foundry** — shared model layer for both platforms
-- **Azure Table Storage** — persistence (Events, Submissions, Talks)
-- **Managed Identity** — auth into Tables; no connection strings in code
-- **OpenTelemetry → Application Insights** — agent traces and metrics
-- **.NET** — primary language for MAF agents (Python in scope where it fits)
+## Build and local development
 
-## Quickstart
+Use the .NET SDK pinned in `global.json` and dependency versions in
+`Directory.Packages.props`.
 
-> **Status:** Phase 1 — scaffolding. The commands below are placeholders until Phase 2 lands.
-
-```bash
-# 1. Provision Azure (resource group, storage account, three tables)
-./scripts/provision-azure.sh
-
-# 2. Seed Talks and Events with your canonical data
-# TODO Phase 2: pwsh ./scripts/seed-tables.ps1
-
-# 3. Build and deploy the MAF agents
-# TODO Phase 2: dotnet build src/
-
-# 4. Run OpenClaw locally against the same model + tables
-# TODO Phase 2: openclaw run
+```powershell
+dotnet restore SpeakerPipeline.slnx
+dotnet build SpeakerPipeline.slnx --configuration Release --no-restore
+dotnet test SpeakerPipeline.slnx --configuration Release --no-build
 ```
 
-## Project status
+Configure a local API with loopback Azurite using the settings example in
+`src/SpeakerPipeline.Api`. The [migration CLI](tools/SpeakerPipeline.Migrate/README.md)
+previews imports by default and permits fictional samples only against loopback:
 
-**Phase 1 — scaffolding.** Repo skeleton, schema, samples, contributor docs. No agent code yet.
+```powershell
+dotnet run --project tools/SpeakerPipeline.Migrate -- samples --source samples --api http://localhost:5080/
+```
 
-**Phase 2 — first agent slice.** Tracker maintenance agent + Sessionize discovery agent, end-to-end against real Tables. Scope sketched in [docs/architecture-overview.md](docs/architecture-overview.md).
+The old `scripts/seed-tables.ps1` entrypoint is retired and fails immediately.
+Keep real imports, snapshots, cleanup manifests, and journals outside Git. Do not
+seed the production system from `samples/`.
+
+## Current capabilities
+
+- Discovery and URL ingestion, confidence-based quarantine, scoring, and
+  deterministic tracker reconciliation/conflict checks.
+- Telegram commands plus email/Telegram digests and urgent deadline notices;
+  notification history supports deduplication. No automatic organizer submissions.
+- Entra roles, managed identities, readiness checks, and OpenTelemetry to
+  Application Insights.
+- Blocking solution tests/evals and manual production releases of CI artifacts.
+- Role-protected snapshot export, conservative cleanup, resumable journals,
+  selective rollback, and local full-backup restore rehearsal.
 
 ## Documentation
 
-- [Architecture overview](docs/architecture-overview.md) — how the pieces fit
-- [Table Storage schema](docs/architecture-table-storage.md) — persistence ground truth
-- [Architecture Decision Records](docs/adr/) — why we picked what we picked
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
+- [Architecture overview](docs/architecture-overview.md)
+- [Authoritative Table Storage schema](docs/architecture-table-storage.md)
+- [Production rollout](docs/production-rollout.md) and [infrastructure](infra/README.md)
+- [Migration CLI](tools/SpeakerPipeline.Migrate/README.md) and [fictional samples](samples/README.md)
+- [Architecture decisions](docs/adr/), [contributing](CONTRIBUTING.md), and [security](SECURITY.md)
 
 ## License
 

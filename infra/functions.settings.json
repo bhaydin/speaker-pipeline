@@ -1,5 +1,5 @@
 {
-  "_comment": "Non-sensitive Functions app settings, applied additively on deploy. Env-specific identifiers (client/tenant ids, hostnames, scope, Foundry endpoint, Key Vault URI) are injected by the deploy workflow from GitHub Secrets — never committed. See .github/workflows/deploy-functions.yml.",
+  "_comment": "Non-sensitive application settings, applied additively by the production release workflow. Identity, endpoints and Key Vault references are established separately. Maintenance, timers and notification enablement are operator-owned and never overwritten by a release.",
 
   "ScoringAgent__Provider": "foundry",
   "ScoringAgent__ModelName": "gpt-5-mini",
@@ -32,10 +32,5 @@
   "Search__Queries__6": "site:sessionize.com \"AI\" \"Call for Speakers\" \"United States\"",
   "Search__Queries__7": "site:sessionize.com inurl:cfs \"2026\"",
   "Search__Queries__8": "site:sessionize.com inurl:cfs \"2027\"",
-  "Search__Queries__9": "site:papercall.io \"Azure\" OR \"AI\" OR \"Copilot\"",
-
-  "Notifications__Email__Enabled": "true",
-  "Notifications__SuppressEmptyScheduledRuns": "false",
-
-  "Telegram__Enabled": "true"
+  "Search__Queries__9": "site:papercall.io \"Azure\" OR \"AI\" OR \"Copilot\""
 }

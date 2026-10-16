@@ -13,6 +13,9 @@ using SpeakerPipeline.Mcp.Ingest;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
+RuntimeSafety.ValidateConsumer(builder.Environment.EnvironmentName, RuntimeSafety.IsAzureHost,
+    builder.Configuration["SpeakerPipelineApi:BaseUrl"], builder.Configuration["SpeakerPipelineApi:Scope"]);
+
 builder.ConfigureFunctionsWebApplication();
 
 builder.Services
@@ -68,7 +71,7 @@ internal sealed class BearerTokenHandler(IConfiguration configuration, IHostEnvi
         var scope = configuration["SpeakerPipelineApi:Scope"];
         if (string.IsNullOrWhiteSpace(scope))
         {
-            return null;
+            throw new InvalidOperationException("SpeakerPipelineApi:Scope is required outside local Development.");
         }
 
         var token = await _credential.Value.GetTokenAsync(new TokenRequestContext([scope]), ct);

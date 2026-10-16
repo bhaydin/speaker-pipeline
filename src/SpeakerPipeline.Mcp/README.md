@@ -1,6 +1,6 @@
 # SpeakerPipeline.Mcp
 
-Remote **MCP server** on Azure Functions (isolated worker, Flex Consumption).
+**MCP server** source for Azure Functions (isolated worker), currently used locally.
 It exposes the pipeline to any MCP-capable surface — Claude, Copilot — so an idea
 that surfaces mid-conversation becomes a one-sentence tool call, and pipeline
 state is queryable from the same chat.
@@ -34,9 +34,9 @@ structural half of the submit-intent-vs-confirmation ambiguity guard
   Functions `mcp_extension` system key. Entra OAuth can be layered later.
 - Outbound calls to the API attach a bearer token: the literal `dev` token
   locally, a managed-identity token in Azure (`SpeakerPipelineApi:Scope`).
-- The SSE transport uses `AzureWebJobsStorage` queues; the deployed identity
-  needs Storage Queue Data Contributor + Message Processor (granted in
-  [`infra/modules/rbac.bicep`](../../infra/modules/rbac.bicep)).
+- The SSE transport uses `AzureWebJobsStorage` queues; local development uses
+  an isolated emulator. A hosted deployment would need separate host-storage
+  permissions and an authorized API identity, not direct pipeline data access.
 
 ## Run locally
 
@@ -50,9 +50,9 @@ func start
 Point an MCP client at `http://localhost:7071/runtime/webhooks/mcp` (transport:
 Streamable HTTP). The pipeline API must be reachable at `SpeakerPipelineApi:BaseUrl`.
 
-## Deploy
+## Production status
 
-The Flex Consumption Function App is provisioned by
-[`infra/modules/functions.bicep`](../../infra/modules/functions.bicep) (wired into
-`infra/main.bicep`). Deploy code with your preferred Functions tooling (`azd`,
-`func azure functionapp publish`, or CI).
+The single production estate has an API and an agents Functions host, with no
+MCP Function App. The obsolete MCP provisioning path has been retired. Retain
+this project for local integrations; cloud hosting requires a separately reviewed
+change to the [production infrastructure](../../infra/README.md).

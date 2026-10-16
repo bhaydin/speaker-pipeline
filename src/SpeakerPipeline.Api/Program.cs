@@ -4,9 +4,13 @@ using SpeakerPipeline.Api.Auth;
 using SpeakerPipeline.Api.Endpoints;
 using SpeakerPipeline.Api.Observability;
 using SpeakerPipeline.Api.Validation;
+using SpeakerPipeline.Core;
 using SpeakerPipeline.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
+
+RuntimeSafety.ValidateStorage(builder.Environment.EnvironmentName, RuntimeSafety.IsAzureHost,
+    builder.Configuration["Storage:ConnectionString"]);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
@@ -19,7 +23,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-builder.Services.AddSpeakerPipelineStorage(builder.Configuration);
+builder.Services.AddSpeakerPipelineStorage(builder.Configuration, builder.Environment.EnvironmentName);
+builder.Services.AddPipelineMaintenanceStorage(builder.Configuration);
 builder.Services.AddSpeakerPipelineAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSpeakerPipelineObservability(builder.Configuration, builder.Environment);
 
@@ -38,6 +43,21 @@ app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.Use(async (context, next) =>
+{
+    var writes = !HttpMethods.IsGet(context.Request.Method) &&
+        !HttpMethods.IsHead(context.Request.Method) && !HttpMethods.IsOptions(context.Request.Method);
+    if (app.Configuration.GetValue<bool>("Maintenance:FreezeWrites") && writes &&
+        !context.Request.Path.StartsWithSegments("/v1/admin/data"))
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.Headers.RetryAfter = "300";
+        await context.Response.WriteAsJsonAsync(new { error = "Production maintenance: business writes are paused." });
+        return;
+    }
+    await next(context);
+});
+
 app.MapHealth();
 app.MapEventsApi();
 app.MapSubmissionsApi();
@@ -47,6 +67,7 @@ app.MapTopicsApi();
 app.MapBlackoutsApi();
 app.MapPipelineApi();
 app.MapNotificationsApi();
+app.MapMaintenanceApi();
 
 app.Run();
 

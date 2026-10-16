@@ -1,11 +1,8 @@
 // -----------------------------------------------------------------------------
-// Ensures the pipeline's Table Storage tables exist on the existing data
-// account. The full storage.bicep module declares these, but the deployed
-// stspeakerpipelinedev account was created by hand and never got them, so the
-// API 500s on the first query (TableNotFound). Declaring a table that already
-// exists is a no-op — this is safe and idempotent, and touches no data.
+// Ensures all six tables exist on the existing production data account.
+// Declaring an existing table does not seed, delete or replace its entities.
 //
-// Deploy target: the per-env compute resource group.
+// Deploy target: the production resource group (historical dev suffix).
 //   az deployment group create -g rg-speakerpipeline-dev -f infra/data-tables.bicep
 // -----------------------------------------------------------------------------
 
@@ -14,7 +11,7 @@ targetScope = 'resourceGroup'
 @description('Name of the pipeline data storage account.')
 param storageAccountName string = 'stspeakerpipelinedev'
 
-@description('Tables backing the Core repositories. Matches infra/modules/storage.bicep.')
+@description('Tables backing the Core repositories.')
 param tableNames array = [
   'Events'
   'Submissions'

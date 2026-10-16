@@ -1,104 +1,97 @@
-# Architecture Overview
+# Architecture overview
 
-A high-level walk through how this pipeline is shaped. For the persistence contract, see [architecture-table-storage.md](architecture-table-storage.md) — that file is the ground truth for `Events`, `Submissions`, and `Talks`. This document deliberately does not restate the schema; it explains how the agents move data through it.
+The speaking pipeline has one logical production environment: the existing API
+App Service and Azure Functions host. Historical `dev` resource names remain
+unchanged. Local development is isolated from production data. See the
+[production runbook](production-rollout.md), [deployment plan](../.azure/deployment-plan.md),
+and [six-table schema](architecture-table-storage.md).
 
-## One picture
+## Runtime and boundaries
 
 ```mermaid
 flowchart TB
-    subgraph Cloud["Azure"]
-        direction TB
-        subgraph MAF["Microsoft Agent Framework — Foundry Agent Service"]
-            direction LR
-            subgraph DiscoveryLane["Discovery"]
-                D1[Sessionize scanner]
-                D2[PaperCall scanner]
-                D3[CFP.ninja scanner]
-                D4[Meetup scanner]
-                D5[Global AI scanner]
-            end
-            Verify[Verification agent]
-            Score[Scoring agent]
-            Track[Tracker maintenance agent]
-        end
-        Tables[("Azure Table Storage<br/>Events · Submissions · Talks")]
-        Foundry{{Azure AI Foundry — model layer}}
-        AppI[(Application Insights)]
+    Sources["Watchlist pages · confs.tech · search"] --> Discovery
+    subgraph Functions["Azure Functions"]
+        Discovery["Discovery and URL ingestion"]
+        Scoring[Scoring]
+        Tracker["Tracker maintenance"]
+        Bot["Telegram webhook"]
+        Notify[Notifications]
     end
-
-    subgraph Local["Local — Personal AI surface"]
-        OC[OpenClaw runtime]
-        Digest[Weekly digest]
-        TG[Telegram]
-        OL[Outlook]
-    end
-
-    DiscoveryLane --> Verify
-    Verify --> Score
-    Score --> Track
-    Track --> Tables
-    Verify <-.->|read| Tables
-    Score <-.->|read| Tables
-
-    MAF -.->|model calls| Foundry
-    MAF -.->|OTel traces| AppI
-
-    OC --> Foundry
-    OC <-->|read-mostly| Tables
-    OC --> Digest
-    OC --> TG
-    OC --> OL
-    Digest -. approvals .-> Score
+    Foundry["Azure AI Foundry models"]
+    API["SpeakerPipeline.Api<br/>App Service"]
+    Tables[("Events · Submissions · Talks<br/>Topics · Blackouts · NotificationLog")]
+    Artifacts[("Private maintenance artifacts")]
+    Insights["Application Insights"]
+    Operator["Operator CLI"]
+    Discovery --> API
+    Scoring --> API
+    Tracker --> API
+    Bot --> API
+    Notify --> API
+    Discovery --> Foundry
+    Scoring --> Foundry
+    API --> Tables
+    API --> Artifacts
+    Operator -->|Maintenance role| API
+    Functions -. telemetry .-> Insights
+    API -. telemetry .-> Insights
+    Notify --> Channels["Operator email and Telegram"]
 ```
 
-## The two platforms, and why both
+The .NET agent projects use the Microsoft Agent Framework ecosystem through
+`Microsoft.Extensions.AI.IChatClient`. Functions provides scheduled/manual
+execution; Foundry supplies models. The workload is not hosted in Foundry Agent
+Service. Every read and write by agents, Telegram, or operator tooling goes
+through the API. Only the API references Storage.
 
-**Microsoft Agent Framework (MAF)** is the cloud backbone. It runs the scheduled, observable, multi-agent workload — discovery scans nightly, verification on demand, scoring on a cadence, maintenance continuously. It lives in Azure AI Foundry Agent Service, authenticates via Managed Identity, and emits OpenTelemetry into Application Insights. This is the production-shaped half of the system.
+The MCP host exists in source as an API adapter but is not deployed. OpenClaw,
+external calendar connectors, and automated organizer submissions are future
+capabilities, outside this production cutover.
 
-**OpenClaw** is the personal-AI surface. It runs locally, with the same model fabric (Foundry, via plugin or LiteLLM bridge), and is the only path to outbound action — drafting submissions, sending Telegram messages, queuing Outlook follow-ups. It's also where the **approval gate** lives: nothing the agents propose leaves the system until Brian taps approve.
+## Implemented flows
 
-The split matters. The MAF half is observable, role-scoped, idempotent, and re-deployable. The OpenClaw half is intimate, single-operator, and gets to be opinionated about what a personal AI feels like. Forcing both into one platform would compromise one or the other.
+| Component | Behavior | Normal trigger |
+|---|---|---|
+| Discovery | Reads watchlist/confs.tech/search sources, extracts and reconciles events, quarantines weak candidates | Daily 05:00 UTC; manual HTTP |
+| URL ingestion | Extracts an explicitly supplied URL through the discovery pipeline | HTTP and Telegram `/track` |
+| Tracker maintenance | Derives event categories from submissions, calculates blackout/preparation conflicts, finds urgent deadlines | Daily 05:30 UTC; manual HTTP |
+| Scoring | Reads event candidates and pipeline context, records model recommendations through the API | Monday 06:00 UTC; manual HTTP |
+| Telegram | Reports status, captures topics, ingests URLs, promotes candidates, and records intent/pass decisions | Secret-validated webhook and configured chat |
+| Notifications | Sends run digests and urgent notices to configured operator destinations; records deliveries for deduplication | Agent run results |
 
-## Agent roster
+These schedules operate independently; their ordering is not a durable workflow
+transaction. Discovery verification/extraction occurs inside the discovery flow,
+not in a separately deployed verification agent. Tracker maintenance currently
+updates event status/conflict flags; it does not infer delivered talks or increment
+talk delivery counts. `/approve` records intent to submit, not a completed
+submission to an organizer.
 
-| Agent | Lane | Reads | Writes | Trigger |
-|---|---|---|---|---|
-| `sessionize-scanner` | Discovery | Sessionize public CFP feed | `Events` (upsert) | Schedule |
-| `papercall-scanner` | Discovery | PaperCall public listings | `Events` (upsert) | Schedule |
-| `cfpninja-scanner` | Discovery | CFP.ninja listings | `Events` (upsert) | Schedule |
-| `meetup-scanner` | Discovery | Meetup API for tracked groups | `Events` (upsert) | Schedule |
-| `globalai-scanner` | Discovery | Global AI Chapter pages | `Events` (upsert) | Schedule |
-| `verification-agent` | Verification | `Events` + live event URL | `Events.LastVerifiedUtc`, `StatusDetail` | After discovery |
-| `scoring-agent` | Scoring | `Events`, `Talks`, `Submissions` | `Events.Category`, `Priority`, `NextAction` | After verification |
-| `tracker-maintenance-agent` | Maintenance | `Events`, `Submissions` | `Events`, `Submissions`, `Talks` (status flips, denormalized fields) | Continuous |
+Manual run triggers can write data and send notifications. Empty scheduled-run
+suppression does not disable urgent notices. Notification history is operational
+state and must survive cleanup unless exact rows are explicitly reviewed.
 
-OpenClaw is not an MAF agent — it's the local surface that reads the resulting tables and proposes outbound action.
+## Identity, operations, and recovery
 
-## Data flow, end-to-end
+The API validates Entra tokens and requires `Pipeline.Access` for ordinary
+operations. Functions uses managed identity for the API and model access; the
+API identity owns Table Storage access. Do not grant agent identities direct
+pipeline table access. Telegram additionally requires its shared webhook secret
+and configured chat; manual Function endpoints require function keys.
 
-1. **Discover.** Per-source agents scan their feed, slug-sanitize candidate events, and upsert into `Events` with `DiscoveredByAgent` set and `SchemaVersion = 1`.
-2. **Verify.** The verification agent hits the live event URL, confirms the CFP is open, and stamps `LastVerifiedUtc` + a free-text `StatusDetail`. Dead links get `Category = Pass`.
-3. **Score.** The scoring agent looks at deadline, focus-fit, talk reusability, and travel burden, then sets `Category` (`SubmitNow` / `Monitor` / `Pass`) and `Priority` (`High` / `Medium` / `Low`). `DecidedByAgent` records the version that made the call.
-4. **Surface.** OpenClaw reads the result, builds a weekly digest, and offers Brian a one-tap approval for any `SubmitNow` row.
-5. **Submit.** On approval, OpenClaw drafts the submission and (eventually) posts it. A new row lands in `Submissions` with `Status = Submitted` and a denormalized `EventName`.
-6. **Maintain.** The tracker maintenance agent watches for status flips (e.g. `Submitted` → `Accepted`), updates the corresponding `Events.Category` to `Accepted`, increments `Talks.DeliveryCount` on delivered talks, and re-verifies stale rows.
+`/health` reports API liveness. Protected `/health/ready` exercises all six data
+tables. Functions exposes a key-protected readiness check that does not run
+agents or send notifications. OpenTelemetry and Application Insights support
+runtime investigation; release acceptance also verifies telemetry arrival.
 
-## Cross-cutting concerns
+Production releases are manual and consume successful CI artifacts. The release
+workflow preserves pause controls. The cutover freezes ordinary API writes and
+pauses Functions/MCP/manual writers and notification lanes before export and
+cleanup. The API's separately authorized maintenance surface exports raw typed
+entities, validates snapshot/target/ETag bindings, and journals selective changes
+before mutation. Restore handles touched rows or a full backup rehearsal in
+isolated loopback storage. Unknown properties and orphan rows are preserved in
+exports; ordinary domain projections are not backups.
 
-- **Auth:** Managed identity everywhere. The MAF agents get `Storage Table Data Contributor` on the storage account. No connection strings, no SAS tokens.
-- **Idempotency:** Every write is an upsert keyed on `(PartitionKey, RowKey)`. Agents are safe to retry. The schema doc lays out batch and concurrency rules — see Gotchas section there.
-- **Observability:** OpenTelemetry from day one. Each agent run emits a span with `agent.name`, `agent.version`, table operations as child spans, and outcome counters. Application Insights is the AgentOps surface.
-- **Schema evolution:** `SchemaVersion` on every entity. Maintenance agent owns backfills.
-- **Approval gating:** No outbound action without explicit human approval. The boundary is the OpenClaw runtime — nothing in the MAF tier is allowed to send mail, post submissions, or message a human.
-
-## Phase 2 — recommended first slice
-
-Build in this order. Each step is small enough to ship in a day.
-
-1. **Provision the Azure resources** (`scripts/provision-azure.sh`) and verify role assignment.
-2. **Seed the `Talks` table** with the four canonical lanes (`AgentOps`, `HybridAgents`, `M365Governance`, `PracticalEnterpriseAI`).
-3. **Tracker maintenance agent.** Smallest contract, biggest leverage. Reads an event, re-verifies its URL, updates `LastVerifiedUtc`. Wires up auth, OTel, idempotency, and exercises the full MAF deploy story.
-4. **Sessionize discovery agent.** First writer into `Events`. One source, narrow scope.
-5. **App Insights dashboard.** A live look at agent runs, success rates, and table-op latency. Demo material.
-
-Defer scoring, OpenClaw integration, and the rest of the discovery sources until the above is humming.
+See the [migration CLI](../tools/SpeakerPipeline.Migrate/README.md) for exact
+commands and the [runbook](production-rollout.md) for acceptance and rollback.

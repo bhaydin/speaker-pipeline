@@ -1,6 +1,4 @@
-using SpeakerPipeline.Core;
-
-namespace SpeakerPipeline.Api;
+namespace SpeakerPipeline.Core;
 
 /// <summary>
 /// Assembles a <see cref="PipelineContext"/> from the raw tracker data. Pure and
