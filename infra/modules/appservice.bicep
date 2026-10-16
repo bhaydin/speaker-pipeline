@@ -40,6 +40,9 @@ resource api 'Microsoft.Web/sites@2023-12-01' = {
     keyVaultReferenceIdentity: apiIdentityResourceId
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
+      // The hosted Blazor client adds a second runtimeconfig.json to the publish
+      // output. Pin the server entry point instead of relying on Oryx detection.
+      appCommandLine: 'dotnet /home/site/wwwroot/SpeakerPipeline.Api.dll'
       alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
