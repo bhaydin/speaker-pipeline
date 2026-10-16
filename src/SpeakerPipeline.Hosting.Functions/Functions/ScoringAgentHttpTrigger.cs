@@ -10,9 +10,10 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// <summary>
 /// Manual ad-hoc trigger for the scoring agent. Auth required (function
 /// key). Useful in dev for "run it now" without waiting for the timer.
-/// Sends a run-summary notification so a manual run confirms itself.
+/// Returns decisions to the caller and sends the current actionable snapshot,
+/// with the same delivery deduplication as the scheduled run.
 /// </summary>
-public sealed class ScoringAgentHttpTrigger(ScoringAgent agent, INotifier notifier, ILogger<ScoringAgentHttpTrigger> logger)
+public sealed class ScoringAgentHttpTrigger(PipelineRuns runs, ILogger<ScoringAgentHttpTrigger> logger)
 {
     [Function("ScoringAgentHttpTrigger")]
     public async Task<HttpResponseData> Run(
@@ -20,8 +21,7 @@ public sealed class ScoringAgentHttpTrigger(ScoringAgent agent, INotifier notifi
         CancellationToken ct)
     {
         logger.LogInformation("Scoring agent run starting (manual).");
-        var verdicts = await agent.RunAsync(ct);
-        await ScoringNotification.SendAsync(notifier, verdicts, ct);
+        var verdicts = await runs.ScoringAsync(ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new { count = verdicts.Count, verdicts }, ct);

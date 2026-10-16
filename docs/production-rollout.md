@@ -5,6 +5,10 @@ historical; there is no hosted development environment or promotion pipeline.
 Real records, private exports, tokens and deployment credentials never enter
 Git, CI artifacts or public logs. Repository samples remain fictional test data.
 
+The subsequent shared-state/catalog/dashboard release has a separate
+[activation procedure](actionable-pipeline-rollout.md). The historical cleanup
+record below is not evidence that those later features are active.
+
 ## Recorded cutover — 2026-10-16
 
 The [final manual production release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38943407144)

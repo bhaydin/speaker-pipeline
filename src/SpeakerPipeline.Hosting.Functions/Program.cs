@@ -7,8 +7,10 @@ using SpeakerPipeline.Agents.Discovery;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
+using SpeakerPipeline.Catalog;
 using SpeakerPipeline.Core;
 using SpeakerPipeline.Hosting.Functions.Observability;
+using SpeakerPipeline.Hosting.Functions.Functions;
 using SpeakerPipeline.Notifications;
 using SpeakerPipeline.Telegram;
 
@@ -32,11 +34,17 @@ var host = new HostBuilder()
         services.AddDiscoveryAgent(ctx.Configuration);
         services.AddNotifications(ctx.Configuration);
         services.AddTelegram(ctx.Configuration);
+        services.AddTalkCatalog(ctx.Configuration);
+        services.AddTransient<PipelineRuns>();
 
         services.AddTransient<BearerTokenHandler>();
         services
             .AddSpeakerPipelineApiClient(ctx.Configuration)
             .AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddOpportunityApiClient(ctx.Configuration).AddHttpMessageHandler<BearerTokenHandler>();
+        services.AddCatalogApiClient(ctx.Configuration).AddHttpMessageHandler<BearerTokenHandler>();
+        services.AddPipelineOperationsClient(ctx.Configuration).AddHttpMessageHandler<BearerTokenHandler>();
 
         // IChatClient — Azure AI Foundry via its Azure OpenAI endpoint, chosen by
         // ScoringAgent:Provider and authenticated with the app's managed identity.

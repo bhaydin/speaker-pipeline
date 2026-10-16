@@ -45,7 +45,7 @@ public static class ConflictEvaluator
         var window = TimeSpan.FromDays(prepWindowDays);
         var nearbyCommitted = allEvents.Count(other =>
             !string.Equals(other.Slug, ev.Slug, StringComparison.OrdinalIgnoreCase)
-            && CommittedCategories.Contains(other.Category)
+            && (CommittedCategories.Contains(other.Category) || other.RecordedSubmissionStatus == SubmissionStatus.Accepted)
             && other.EventDateStart is { } otherStart
             && (otherStart - start).Duration() <= window);
 

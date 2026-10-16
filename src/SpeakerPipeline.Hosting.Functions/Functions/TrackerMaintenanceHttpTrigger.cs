@@ -12,7 +12,7 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// (function key). Reconciles Events.Category from submission status on demand,
 /// and sends a run-summary notification.
 /// </summary>
-public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent, INotifier notifier, ILogger<TrackerMaintenanceHttpTrigger> logger)
+public sealed class TrackerMaintenanceHttpTrigger(PipelineRuns runs, ILogger<TrackerMaintenanceHttpTrigger> logger)
 {
     [Function("TrackerMaintenanceHttpTrigger")]
     public async Task<HttpResponseData> Run(
@@ -20,9 +20,7 @@ public sealed class TrackerMaintenanceHttpTrigger(TrackerMaintenanceAgent agent,
         CancellationToken ct)
     {
         logger.LogInformation("Tracker-maintenance run starting (manual).");
-        var result = await agent.RunAsync(ct);
-        await TrackerNotification.SendUrgentDeadlinesAsync(notifier, result.UrgentDeadlines, ct);
-        await TrackerNotification.SendAsync(notifier, result.Updates, result.ConflictChanges, ct);
+        var result = await runs.TrackerAsync(ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         var changeCount = result.Updates.Count + result.ConflictChanges.Count;

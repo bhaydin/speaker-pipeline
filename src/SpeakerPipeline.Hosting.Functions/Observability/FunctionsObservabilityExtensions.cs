@@ -32,21 +32,15 @@ public static class FunctionsObservabilityExtensions
         // Bot API carries the token in the URL path, so without this it would land
         // in dependency telemetry. Configuring the options here applies the
         // enrichment regardless of who registers the HTTP-client instrumentation.
-        services.Configure<HttpClientTraceInstrumentationOptions>(options =>
+        services.PostConfigure<HttpClientTraceInstrumentationOptions>(options =>
         {
-            var previous = options.EnrichWithHttpRequestMessage;
-            options.EnrichWithHttpRequestMessage = (activity, request) =>
+            options.RecordException = false;
+            options.EnrichWithHttpRequestMessage = OutboundHttpPrivacy.EnrichRequest;
+            options.EnrichWithHttpResponseMessage = (activity, response) =>
             {
-                previous?.Invoke(activity, request);
-
-                if (request.RequestUri?.Host == "api.telegram.org")
-                {
-                    var redacted = TelegramTokenRedactor.Redact(request.RequestUri.AbsoluteUri);
-                    activity.SetTag("url.full", redacted);
-                    activity.SetTag("http.url", redacted);
-                    activity.DisplayName = $"{request.Method} api.telegram.org";
-                }
+                if (response.RequestMessage is { } request) OutboundHttpPrivacy.EnrichRequest(activity, request);
             };
+            options.EnrichWithException = OutboundHttpPrivacy.EnrichException;
         });
 
         var otel = services.AddOpenTelemetry()

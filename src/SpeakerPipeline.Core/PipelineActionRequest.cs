@@ -11,4 +11,6 @@ public sealed record PipelineActionRequest
 
     /// <summary>Optional free-text note recorded on the event's status detail.</summary>
     public string? Note { get; init; }
+    /// <summary>Explicitly supplied reason; required for Drop and demotion after opportunity cutover.</summary>
+    public FeedbackReason? ReasonCode { get; init; }
 }

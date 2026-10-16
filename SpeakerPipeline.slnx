@@ -4,8 +4,10 @@
     <Project Path="src/SpeakerPipeline.Agents.Scoring/SpeakerPipeline.Agents.Scoring.csproj" />
     <Project Path="src/SpeakerPipeline.Agents.TrackerMaintenance/SpeakerPipeline.Agents.TrackerMaintenance.csproj" />
     <Project Path="src/SpeakerPipeline.Api/SpeakerPipeline.Api.csproj" />
+    <Project Path="src/SpeakerPipeline.Catalog/SpeakerPipeline.Catalog.csproj" />
     <Project Path="src/SpeakerPipeline.Client/SpeakerPipeline.Client.csproj" />
     <Project Path="src/SpeakerPipeline.Core/SpeakerPipeline.Core.csproj" />
+    <Project Path="src/SpeakerPipeline.Dashboard/SpeakerPipeline.Dashboard.csproj" />
     <Project Path="src/SpeakerPipeline.Hosting.Functions/SpeakerPipeline.Hosting.Functions.csproj" />
     <Project Path="src/SpeakerPipeline.Mcp/SpeakerPipeline.Mcp.csproj" />
     <Project Path="src/SpeakerPipeline.Notifications/SpeakerPipeline.Notifications.csproj" />

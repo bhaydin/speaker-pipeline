@@ -9,12 +9,18 @@ public static class ServiceCollectionExtensions
     {
         services.AddOptions<NotificationOptions>()
             .Bind(configuration.GetSection(NotificationOptions.SectionName));
+        services.AddOptions<PipelineNotificationOptions>().Bind(configuration.GetSection("Pipeline"));
 
         // Email lane over Graph. A typed HttpClient for the Graph call.
         services.AddHttpClient<EmailLane>(c => c.Timeout = TimeSpan.FromSeconds(20));
         services.AddTransient<INotificationLane>(sp => sp.GetRequiredService<EmailLane>());
 
         services.AddTransient<INotifier, Notifier>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddTransient<DeliveryCoordinator>();
+        services.AddTransient<NotificationOutbox>();
+        services.AddTransient<RunReporter>();
+        services.AddTransient<PipelineHealth>();
         return services;
     }
 }

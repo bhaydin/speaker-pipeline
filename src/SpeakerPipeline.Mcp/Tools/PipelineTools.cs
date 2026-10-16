@@ -57,6 +57,7 @@ public sealed class PipelineTools(ISpeakerPipelineApiClient api, ILogger<Pipelin
         [McpToolProperty("entity_id", "Slug of the event to update.", true)] string entityId,
         [McpToolProperty("action", "One of: skip, monitor, intend, confirmed.", true)] string action,
         [McpToolProperty("note", "Optional note recorded on the event.")] string? note,
+        [McpToolProperty("reasonCode", "Explicit user reason for skip or demotion: WrongAudience, TooFar, BadTiming, AlreadySpokeThere, NotMyTopic, Other. Never invent a reason.")] string? reasonCode,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(entityId))
@@ -69,7 +70,16 @@ public sealed class PipelineTools(ISpeakerPipelineApiClient api, ILogger<Pipelin
             return $"Error: unknown action '{action}'. Use one of: skip, monitor, intend, confirmed.";
         }
 
-        var updated = await api.ApplyPipelineActionAsync(entityId, new PipelineActionRequest { Action = parsed, Note = note }, ct);
+        FeedbackReason? feedbackReason = null;
+        if (!string.IsNullOrWhiteSpace(reasonCode))
+        {
+            if (!Enum.TryParse<FeedbackReason>(reasonCode, true, out var suppliedReason) || !Enum.IsDefined(suppliedReason))
+                return "Error: invalid reasonCode. Use an explicit user reason: WrongAudience, TooFar, BadTiming, AlreadySpokeThere, NotMyTopic, Other.";
+            feedbackReason = suppliedReason;
+        }
+        if (parsed == PipelineAction.Skip && feedbackReason is null)
+            return "Error: skip requires the user's explicit reasonCode. Ask for their reason; do not invent Other.";
+        var updated = await api.ApplyPipelineActionAsync(entityId, new PipelineActionRequest { Action = parsed, Note = note, ReasonCode = feedbackReason }, ct);
         logger.LogInformation("Applied {Action} to {Slug} via MCP", parsed, entityId);
         return $"Applied '{parsed}' to '{updated.Slug}'. Category is now {updated.Category}.";
     }

@@ -47,10 +47,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEventRepository>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            if (opts.OpportunitiesEnabled)
+                return new OpportunityEventRepository(sp.GetRequiredService<IOpportunityRepository>(), sp.GetRequiredService<TimeProvider>());
             var service = sp.GetRequiredService<TableServiceClient>();
             var client = service.GetTableClient(opts.EventsTableName);
             return new EventRepository(client, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<EventRepository>>());
         });
+
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IOpportunityRepository>(sp => new OpportunityRepository(
+            sp.GetRequiredService<TableServiceClient>().GetTableClient(sp.GetRequiredService<IOptions<StorageOptions>>().Value.OpportunitiesTableName),
+            sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<IOptions<StorageOptions>>().Value.OpportunitiesEnabled));
+        services.AddSingleton<IOpportunityMigrationService, OpportunityMigrationService>();
 
         services.AddSingleton<ISubmissionRepository>(sp =>
         {

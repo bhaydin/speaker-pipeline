@@ -147,6 +147,7 @@ internal static class Mapping
         return new TableEntity(TalksPartition, r.Slug)
         {
             ["CanonicalTitle"] = r.CanonicalTitle,
+            ["CatalogTalkId"] = r.CatalogTalkId,
             ["Lane"] = r.Lane.ToString(),
             ["AbstractShort"] = r.AbstractShort,
             ["AbstractLong"] = r.AbstractLong,
@@ -166,6 +167,7 @@ internal static class Mapping
     {
         Slug = e.RowKey,
         CanonicalTitle = e.GetString("CanonicalTitle") ?? string.Empty,
+        CatalogTalkId = e.GetString("CatalogTalkId"),
         Lane = ParseEnum<Lane>(e.GetString("Lane")) ?? Lane.AgentOps,
         AbstractShort = e.GetString("AbstractShort"),
         AbstractLong = e.GetString("AbstractLong"),

@@ -15,6 +15,8 @@ public sealed class ScoringAgentOptions
     /// "model-router"), which is what <c>GetChatClient</c> binds to.
     /// </summary>
     public string ModelName { get; set; } = "<placeholder>";
+    /// <summary>Change when a deployment's underlying model changes without a new deployment name.</summary>
+    public string ModelRevision { get; set; } = "";
 
     public string AgentName { get; set; } = "scoring-agent";
     public string AgentVersion { get; set; } = "v1";
@@ -43,4 +45,14 @@ public sealed class ScoringAgentOptions
     /// agent batches and yields. Keeps token usage bounded.
     /// </summary>
     public int MaxCandidatesPerRun { get; set; } = 20;
+    public bool CatalogEnabled { get; set; }
+    public bool UseOpportunityState { get; set; }
+    public int MaxCatalogTalksPerCandidate { get; set; } = 5;
+    public int MaxFeedbackExamples { get; set; } = 8;
+    public int MaxInputCharactersPerCandidate { get; set; } = 24000;
+    public int MaxEstimatedInputTokensPerRun { get; set; } = 120000;
+    public int MaxCompletionTokensPerRun { get; set; } = 81920;
+    public int MaxOutputTokens { get; set; } = 4096;
+    public string PrimaryTravelOrigin { get; set; } = "Milwaukee, WI";
+    public string SecondaryTravelOrigin { get; set; } = "Chicago, IL";
 }

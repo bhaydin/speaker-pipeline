@@ -1,5 +1,6 @@
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Notifications;
+using SpeakerPipeline.Core;
 
 namespace SpeakerPipeline.Hosting.Functions.Functions;
 
@@ -10,6 +11,14 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// </summary>
 internal static class ScoringNotification
 {
+    public static async Task SendSnapshotAsync(INotifier notifier, IReadOnlyList<OpportunityRecord> snapshot,
+        IReadOnlyList<ScoredVerdict> decisions, DateTimeOffset now, CancellationToken ct)
+    {
+        var changes = decisions.Where(d => d.Change == VerdictChange.Changed).ToDictionary(d => d.Decision.EventSlug,
+            d => new OpportunityVerdictChange(d.PriorCategory, d.Decision.Recommendation, d.Decision.ChangeReason));
+        await notifier.NotifyAsync(OpportunitySnapshotDigest.Build(snapshot, changes, now), ct);
+    }
+
     public static async Task SendAsync(INotifier notifier, IReadOnlyList<ScoredVerdict> verdicts, CancellationToken ct)
     {
         var views = verdicts

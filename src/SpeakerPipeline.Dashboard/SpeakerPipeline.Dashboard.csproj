@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <StaticWebAssetBasePath>dashboard</StaticWebAssetBasePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+  </ItemGroup>
+</Project>

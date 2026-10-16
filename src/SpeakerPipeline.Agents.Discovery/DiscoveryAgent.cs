@@ -42,6 +42,7 @@ public sealed partial class DiscoveryAgent
     private readonly ILogger<DiscoveryAgent> _logger;
     private readonly DiscoveryOptions _options;
     private readonly SearchOptions _searchOptions;
+    private readonly DiscoveryDiagnostics _diagnostics;
 
     public DiscoveryAgent(
         IChatClient chat,
@@ -49,7 +50,7 @@ public sealed partial class DiscoveryAgent
         IEnumerable<ISourceAdapter> sources,
         IOptions<DiscoveryOptions> options,
         IOptions<SearchOptions> searchOptions,
-        ILogger<DiscoveryAgent> logger)
+        ILogger<DiscoveryAgent> logger, DiscoveryDiagnostics? diagnostics = null)
     {
         _chat = chat;
         _api = api;
@@ -57,18 +58,24 @@ public sealed partial class DiscoveryAgent
         _options = options.Value;
         _searchOptions = searchOptions.Value;
         _logger = logger;
+        _diagnostics = diagnostics ?? new DiscoveryDiagnostics();
     }
 
     public async Task<DiscoveryRunReport> RunAsync(CancellationToken ct = default)
     {
         using var runActivity = ActivitySource.StartActivity("discovery.run");
+        _diagnostics.Reset();
         runActivity?.SetTag("agent.name", _options.AgentName);
 
         var candidates = new List<DiscoveryCandidate>();
+        var coverage = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var source in _sources)
         {
-            candidates.AddRange(await source.FetchAsync(ct));
+            var fetched = await source.FetchAsync(ct);
+            coverage[source.GetType().Name] = fetched.Count;
+            candidates.AddRange(fetched);
         }
+        if (candidates.Count == 0) _diagnostics.Add("discovery", "zero_candidates");
 
         var existing = (await _api.GetEventsAsync(ct: ct))
             .ToDictionary(e => e.Slug, StringComparer.OrdinalIgnoreCase);
@@ -81,6 +88,7 @@ public sealed partial class DiscoveryAgent
         var dropped = new Dictionary<string, int>(StringComparer.Ordinal);
         var bySource = new Dictionary<string, int>(StringComparer.Ordinal);
         long inputTokens = 0, outputTokens = 0;
+        var usageComplete = true;
         int extractedCount = 0, passedFloor = 0;
 
         void Drop(string reason) => dropped[reason] = dropped.GetValueOrDefault(reason) + 1;
@@ -100,15 +108,18 @@ public sealed partial class DiscoveryAgent
             {
                 try
                 {
-                    var (e, inTok, outTok) = await ExtractAsync(page, ct);
+                    var (e, inTok, outTok, knownUsage) = await ExtractAsync(page, ct);
                     extracted = e;
                     inputTokens += inTok;
                     outputTokens += outTok;
+                    usageComplete &= knownUsage;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    usageComplete = false;
                     _logger.LogWarning(ex, "Discovery: extraction failed for {Url}", candidate.Url);
                     Drop("extract_failed");
+                    _diagnostics.Add("extraction", "extract_failed");
                     continue;
                 }
             }
@@ -120,6 +131,7 @@ public sealed partial class DiscoveryAgent
                     candidate.Page is not null,
                     candidate.Extracted is not null);
                 Drop("invalid_candidate");
+                _diagnostics.Add("discovery", "invalid_candidate");
                 continue;
             }
 
@@ -195,6 +207,7 @@ public sealed partial class DiscoveryAgent
             CandidatesBySource = bySource,
             InputTokens = inputTokens,
             OutputTokens = outputTokens,
+            UsageComplete = usageComplete,
             SearchQueries = CountSearchQueries(),
         };
 
@@ -206,7 +219,7 @@ public sealed partial class DiscoveryAgent
             "Discovery run complete. {Changed} changed, {Quarantined} quarantined from {Candidates} candidates. Tokens={Tokens}, searchQueries={Queries}.",
             changed.Count, quarantined.Count, candidates.Count, funnel.TotalTokens, funnel.SearchQueries);
 
-        return new DiscoveryRunReport(changed, quarantined, funnel);
+        return new DiscoveryRunReport(changed, quarantined, funnel, _diagnostics.Snapshot(), coverage);
     }
 
     /// <summary>Maps a null-upsert reconcile summary to a stable funnel drop code.</summary>
@@ -243,11 +256,12 @@ public sealed partial class DiscoveryAgent
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Discovery: failed to upsert {Slug}", slug);
+            _diagnostics.Add("storage", "write_failed");
             return false;
         }
     }
 
-    private async Task<(ExtractedEvent Extracted, long InputTokens, long OutputTokens)> ExtractAsync(SourcePage page, CancellationToken ct)
+    private async Task<(ExtractedEvent Extracted, long InputTokens, long OutputTokens, bool KnownUsage)> ExtractAsync(SourcePage page, CancellationToken ct)
     {
         var messages = new List<ChatMessage>
         {
@@ -263,7 +277,8 @@ public sealed partial class DiscoveryAgent
 
         var response = await _chat.GetResponseAsync(messages, options, ct);
         var raw = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant)?.Text ?? response.Text;
-        return (ParseExtracted(raw), response.Usage?.InputTokenCount ?? 0, response.Usage?.OutputTokenCount ?? 0);
+        return (ParseExtracted(raw), response.Usage?.InputTokenCount ?? 0, response.Usage?.OutputTokenCount ?? 0,
+            response.Usage?.InputTokenCount is not null && response.Usage.OutputTokenCount is not null);
     }
 
     internal static ExtractedEvent ParseExtracted(string? rawJson)

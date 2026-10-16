@@ -12,7 +12,7 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// Fetches the watchlist, extracts events, reconciles them into the tracker, and
 /// emails a summary of what changed.
 /// </summary>
-public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, INotifier notifier, ILogger<DiscoveryHttpTrigger> logger)
+public sealed class DiscoveryHttpTrigger(PipelineRuns runs, ILogger<DiscoveryHttpTrigger> logger)
 {
     [Function("DiscoveryHttpTrigger")]
     public async Task<HttpResponseData> Run(
@@ -20,8 +20,7 @@ public sealed class DiscoveryHttpTrigger(DiscoveryAgent agent, INotifier notifie
         CancellationToken ct)
     {
         logger.LogInformation("Discovery run starting (manual).");
-        var report = await agent.RunAsync(ct);
-        await DiscoveryNotification.SendAsync(notifier, report, ct);
+        var report = await runs.DiscoveryAsync(ct);
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(

@@ -12,6 +12,13 @@ public static class EventsEndpoints
             .WithTags("Events")
             .RequireAuthorization(AuthExtensions.PolicyName);
 
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            try { return await next(context); }
+            catch (OpportunityConflictException ex) { return Results.Json(new { error = ex.Message, current = ex.Current }, statusCode: 412); }
+            catch (InvalidOperationException ex) { return Results.Problem(ex.Message, statusCode: 409); }
+        });
+
         group.MapGet("", GetEvents).WithName("GetEvents");
         group.MapGet("{slug}", GetEvent).WithName("GetEvent");
         group.MapPost("", PostEvent)
@@ -63,26 +70,38 @@ public static class EventsEndpoints
         return Results.Ok(all);
     }
 
-    private static async Task<IResult> GetEvent(string slug, IEventRepository events, CancellationToken ct)
+    private static async Task<IResult> GetEvent(string slug, IEventRepository events, HttpContext context, CancellationToken ct)
     {
         var record = await events.GetAsync(slug, ct);
+        if (record?.ETag is { } etag) context.Response.Headers.ETag = etag;
         return record is null ? Results.NotFound() : Results.Ok(record);
     }
 
     private static async Task<IResult> PostEvent(EventRecord record, IEventRepository events, CancellationToken ct)
     {
         await events.UpsertAsync(record, ct);
-        return Results.Created($"/v1/events/{record.Slug}", record);
+        return Results.Created($"/v1/events/{record.Slug}", await events.GetAsync(record.Slug, ct));
     }
 
-    private static async Task<IResult> PutEvent(string slug, EventRecord record, IEventRepository events, CancellationToken ct)
+    private static async Task<IResult> PutEvent(string slug, EventRecord record, IEventRepository events, HttpContext context, IConfiguration config, CancellationToken ct)
     {
         if (!string.Equals(slug, record.Slug, StringComparison.OrdinalIgnoreCase))
         {
             return Results.Problem($"URL slug '{slug}' does not match body slug '{record.Slug}'.", statusCode: StatusCodes.Status400BadRequest);
         }
+        if (config.GetValue<bool>("Storage:OpportunitiesEnabled"))
+        {
+            var etag = context.Request.Headers.IfMatch.ToString();
+            var existing = await events.GetAsync(slug, ct);
+            if (existing is not null && (string.IsNullOrWhiteSpace(etag) || etag == "*"))
+                return Results.Problem("Updating an opportunity requires exact If-Match.", statusCode: 428);
+            if (record.ETag is not null && etag != record.ETag) return Results.BadRequest(new { error = "Header and body ETags differ." });
+            record = record with { ETag = string.IsNullOrWhiteSpace(etag) ? null : etag };
+        }
         await events.UpsertAsync(record, ct);
-        return Results.Ok(record);
+        var updated = await events.GetAsync(slug, ct);
+        if (updated?.ETag is { } token) context.Response.Headers.ETag = token;
+        return Results.Ok(updated);
     }
 
     private static async Task<IResult> DeleteEvent(string slug, IEventRepository events, CancellationToken ct)

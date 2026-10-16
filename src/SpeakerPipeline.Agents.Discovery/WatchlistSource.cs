@@ -13,7 +13,7 @@ namespace SpeakerPipeline.Agents.Discovery;
 public sealed partial class WatchlistSource(
     HttpClient http,
     IOptions<DiscoveryOptions> options,
-    ILogger<WatchlistSource> logger) : ISourceAdapter
+    ILogger<WatchlistSource> logger, DiscoveryDiagnostics? diagnostics = null) : ISourceAdapter
 {
     private readonly DiscoveryOptions _options = options.Value;
 
@@ -33,6 +33,7 @@ public sealed partial class WatchlistSource(
                 using var resp = await http.GetAsync(target.Url, ct);
                 if (resp.StatusCode != HttpStatusCode.OK)
                 {
+                    diagnostics?.Add("watchlist", $"http_{(int)resp.StatusCode}");
                     logger.LogWarning("Discovery source degraded: {Url} returned {Status}", target.Url, (int)resp.StatusCode);
                     continue;
                 }
@@ -42,10 +43,12 @@ public sealed partial class WatchlistSource(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                diagnostics?.Add("watchlist", "fetch_failed");
                 logger.LogWarning(ex, "Discovery source degraded: {Url} failed to fetch", target.Url);
             }
         }
 
+        if (_options.Watchlist.Count > 0 && candidates.Count == 0) diagnostics?.Add("watchlist", "empty_source");
         return candidates;
     }
 

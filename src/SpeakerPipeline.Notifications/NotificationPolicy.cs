@@ -1,14 +1,11 @@
 namespace SpeakerPipeline.Notifications;
 
 /// <summary>
-/// Decides whether a run should send its notification. Manual runs always confirm
-/// (you asked for it explicitly); scheduled runs can be configured to stay quiet
-/// when they changed nothing.
+/// Healthy no-op discovery and tracker runs remain quiet, including manual runs.
+/// Errors and anomalies must remain visible independently of write counts.
 /// </summary>
 public static class NotificationPolicy
 {
-    public static bool ShouldNotify(int changeCount, bool isScheduled, bool suppressEmptyScheduledRuns)
-        => changeCount > 0
-           || !isScheduled
-           || !suppressEmptyScheduledRuns;
+    public static bool ShouldNotify(int changeCount, bool isScheduled, bool suppressEmptyScheduledRuns, int issueCount = 0)
+        => changeCount > 0 || issueCount > 0;
 }

@@ -15,4 +15,15 @@ public interface INotificationLane
     bool IsEnabled { get; }
 
     Task SendAsync(Notification notification, CancellationToken ct = default);
+
+    IReadOnlyList<NotificationPart> Prepare(Notification notification) => [new("0", notification)];
+
+    async Task<NotificationDelivery> SendPartAsync(NotificationPart part, CancellationToken ct = default)
+    {
+        await SendAsync(part.Notification, ct);
+        return new NotificationDelivery("Sent");
+    }
+
+    Task ReconcileReceiptAsync(NotificationPart part, NotificationDelivery delivery, CancellationToken ct = default)
+        => Task.CompletedTask;
 }

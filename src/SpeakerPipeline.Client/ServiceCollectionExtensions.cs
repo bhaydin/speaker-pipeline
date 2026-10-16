@@ -6,6 +6,13 @@ namespace SpeakerPipeline.Client;
 
 public static class ServiceCollectionExtensions
 {
+    public static IHttpClientBuilder AddOpportunityApiClient(this IServiceCollection services, IConfiguration configuration)
+        => services.AddHttpClient<IOpportunityApiClient, OpportunityApiClient>(client =>
+        {
+            if (Uri.TryCreate(configuration["SpeakerPipelineApi:BaseUrl"], UriKind.Absolute, out var uri)) client.BaseAddress = uri;
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
     /// <summary>
     /// Registers the HttpClient-backed <see cref="ISpeakerPipelineApiClient"/>.
     /// Caller is expected to configure the base address (via the

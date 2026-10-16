@@ -17,7 +17,7 @@ public sealed class SearchSource(
     HttpClient http,
     ISearchAdapter search,
     IOptions<SearchOptions> options,
-    ILogger<SearchSource> logger) : ISourceAdapter
+    ILogger<SearchSource> logger, DiscoveryDiagnostics? diagnostics = null) : ISourceAdapter
 {
     private readonly SearchOptions _options = options.Value;
 
@@ -39,6 +39,7 @@ public sealed class SearchSource(
         }
 
         var deduped = Dedupe(hits);
+        if (hits.Count == 0) diagnostics?.Add("search", "empty_source");
         logger.LogInformation("Search: {Hits} hits -> {Unique} unique candidate URLs", hits.Count, deduped.Count);
 
         var candidates = new List<DiscoveryCandidate>();
@@ -49,6 +50,7 @@ public sealed class SearchSource(
                 using var resp = await http.GetAsync(hit.Url, ct);
                 if (!resp.IsSuccessStatusCode)
                 {
+                    diagnostics?.Add("search-pages", $"http_{(int)resp.StatusCode}");
                     logger.LogWarning("Search candidate degraded: {Url} -> {Status}", hit.Url, (int)resp.StatusCode);
                     continue;
                 }
@@ -63,6 +65,7 @@ public sealed class SearchSource(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                diagnostics?.Add("search-pages", "fetch_failed");
                 logger.LogWarning(ex, "Search candidate failed to fetch: {Url}", hit.Url);
             }
         }

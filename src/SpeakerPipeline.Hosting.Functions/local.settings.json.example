@@ -10,6 +10,13 @@
     "ScoringAgent__ModelName": "<placeholder>",
     "ScoringAgent__AgentName": "scoring-agent",
     "ScoringAgent__AgentVersion": "v1",
-    "ScoringAgent__MaxCandidatesPerRun": "20"
+    "ScoringAgent__MaxCandidatesPerRun": "20",
+    "Pipeline__OpportunitiesEnabled": "false",
+    "Catalog__Enabled": "false",
+    "ScoringAgent__CatalogEnabled": "false",
+    "ScoringAgent__MaxCatalogTalksPerCandidate": "5",
+    "ScoringAgent__MaxEstimatedInputTokensPerRun": "120000",
+    "ScoringAgent__MaxCompletionTokensPerRun": "81920",
+    "ScoringAgent__MaxOutputTokens": "4096"
   }
 }

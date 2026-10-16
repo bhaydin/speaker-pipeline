@@ -39,7 +39,10 @@ public static class PipelineEndpoints
         IBlackoutRepository blackouts,
         CancellationToken ct)
     {
-        var relevant = await events.GetByCategoryAsync(PipelineContextAssembler.RelevantCategories, ct);
+        var relevant = new List<EventRecord>();
+        await foreach (var record in events.QueryAsync(ct))
+            if (PipelineContextAssembler.RelevantCategories.Contains(record.Category) || record.RecordedSubmissionStatus is SubmissionStatus.Submitted or SubmissionStatus.InReview or SubmissionStatus.Accepted)
+                relevant.Add(record);
         var talkList = await talks.GetAllAsync(ct);
         var blackoutList = await blackouts.GetAllAsync(ct);
 
@@ -58,8 +61,37 @@ public static class PipelineEndpoints
         return Results.Ok(context);
     }
 
-    private static async Task<IResult> PostAction(string slug, PipelineActionRequest request, IEventRepository events, CancellationToken ct)
+    private static async Task<IResult> PostAction(string slug, PipelineActionRequest request, IEventRepository events, HttpContext context, IConfiguration config, CancellationToken ct)
     {
+        if (config.GetValue<bool>("Storage:OpportunitiesEnabled"))
+        {
+            var etag = context.Request.Headers.IfMatch.ToString();
+            if (string.IsNullOrWhiteSpace(etag) || etag == "*") return Results.Problem("An exact If-Match header is required.", statusCode: 428);
+            var idempotencyKey = context.Request.Headers["Idempotency-Key"].ToString();
+            if (string.IsNullOrWhiteSpace(idempotencyKey)) return Results.Problem("An Idempotency-Key header is required.", statusCode: 428);
+            if (!Enum.IsDefined(request.Action)) return Results.BadRequest(new { error = "Unknown pipeline action." });
+            var action = request.Action switch
+            {
+                PipelineAction.Skip => OpportunityAction.Drop,
+                PipelineAction.Confirmed => OpportunityAction.Submitted,
+                _ => OpportunityAction.SetStatus,
+            };
+            var command = new OpportunityActionRequest
+            {
+                Action = action, IdempotencyKey = idempotencyKey,
+                Status = request.Action == PipelineAction.Intend ? OpportunityStatus.SubmitNow : OpportunityStatus.Monitor,
+                Note = request.Note, ReasonCode = request.ReasonCode,
+            };
+            try
+            {
+                var applied = await context.RequestServices.GetRequiredService<IOpportunityRepository>().ApplyActionAsync(slug, command, etag,
+                    context.User.FindFirst("oid")?.Value ?? "authenticated-operator", ct);
+                return Results.Ok(OpportunityMapping.Project(applied));
+            }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (OpportunityConflictException ex) { return Results.Json(new { error = ex.Message, current = ex.Current }, statusCode: 412); }
+            catch (ArgumentException ex) { return Results.Problem(ex.Message, statusCode: 400); }
+        }
         var existing = await events.GetAsync(slug, ct);
         if (existing is null)
         {

@@ -41,7 +41,9 @@ public sealed record DiscoveryResult(string Slug, string EventName, bool IsNew, 
 public sealed record DiscoveryRunReport(
     IReadOnlyList<DiscoveryResult> Changed,
     IReadOnlyList<DiscoveryResult> Quarantined,
-    DiscoveryFunnel Funnel);
+    DiscoveryFunnel Funnel,
+    IReadOnlyList<RunIssue>? Issues = null,
+    IReadOnlyDictionary<string, int>? SourceCoverage = null);
 
 /// <summary>
 /// Per-run candidate accounting, from source output to tracker write, with a
@@ -74,6 +76,7 @@ public sealed record DiscoveryFunnel
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
     public long TotalTokens => InputTokens + OutputTokens;
+    public bool UsageComplete { get; init; } = true;
 
     /// <summary>Google PSE queries billed this run (0 when search is disabled).</summary>
     public int SearchQueries { get; init; }

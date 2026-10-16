@@ -56,7 +56,7 @@ internal sealed class AzureMaintenanceStore(TableServiceClient tables, BlobConta
     public async Task<Dictionary<string, List<MaintenanceEntity>>> ReadAllAsync(CancellationToken ct, bool allowMissingTables = false)
     {
         var result = new Dictionary<string, List<MaintenanceEntity>>(StringComparer.Ordinal);
-        foreach (var name in MaintenanceIntegrity.TableNames)
+        foreach (var name in Target.TableNames.Keys)
         {
             var rows = new List<MaintenanceEntity>();
             try
@@ -74,7 +74,7 @@ internal sealed class AzureMaintenanceStore(TableServiceClient tables, BlobConta
     {
         if (!tables.Uri.IsLoopback || !container.Uri.IsLoopback)
             throw new InvalidOperationException("Only loopback emulator resources may be initialized by snapshot restore.");
-        foreach (var name in MaintenanceIntegrity.TableNames)
+        foreach (var name in Target.TableNames.Keys)
             await Table(name).CreateIfNotExistsAsync(ct).ConfigureAwait(false);
         await container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: ct).ConfigureAwait(false);
     }

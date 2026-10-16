@@ -82,6 +82,34 @@ public class TrackerMaintenanceAgentTests
         Assert.Equal(0, api.Upserts);  // and nothing written
     }
 
+    [Fact]
+    public async Task RunAsync_reconciles_real_submission_evidence_without_overwriting_pinned_or_dropped_placement()
+    {
+        var api = new FakeApiClient();
+        var now = DateTimeOffset.UtcNow;
+        api.Events["pinned"] = Dated("pinned", EventCategory.SubmitNow, now.AddDays(10)) with { ETag = "initial", CfpDeadline = now.AddDays(2) };
+        api.Events["dropped"] = Dated("dropped", EventCategory.Skip, now.AddDays(12)) with { ETag = "initial" };
+        api.Events["target"] = Dated("target", EventCategory.Monitor, now.AddDays(11));
+        api.Submissions["pinned"] = [Sub("pinned", SubmissionStatus.Accepted)];
+        api.Submissions["dropped"] = [Sub("dropped", SubmissionStatus.Accepted)];
+        var opportunities = new ReconciliationApi(api);
+        var agent = new TrackerMaintenanceAgent(api, Options.Create(new TrackerMaintenanceOptions()), NullLogger<TrackerMaintenanceAgent>.Instance, opportunities);
+
+        var first = await agent.RunAsync();
+
+        Assert.Equal(2, first.Updates.Count);
+        Assert.Equal(EventCategory.SubmitNow, api.Events["pinned"].Category);
+        Assert.Equal(EventCategory.Skip, api.Events["dropped"].Category);
+        Assert.Equal(SubmissionStatus.Accepted, api.Events["pinned"].RecordedSubmissionStatus);
+        Assert.True(api.Events["target"].PrepConflictFlag); // actual commitments count even with pinned board placement
+        Assert.Empty(first.UrgentDeadlines); // a recorded accepted submission needs no CFP reminder
+        Assert.Empty(first.Issues!);
+        api.Upserts = 0;
+        var second = await agent.RunAsync();
+        Assert.Empty(second.Updates);
+        Assert.Equal(0, api.Upserts);
+    }
+
     // --- FindUrgentDeadlines (B3) --------------------------------------------
 
     private static readonly DateTimeOffset Now = new(2027, 1, 15, 0, 0, 0, TimeSpan.Zero);
@@ -301,5 +329,28 @@ public class TrackerMaintenanceAgentTests
         public Task<EventRecord> ApplyPipelineActionAsync(string slug, PipelineActionRequest request, CancellationToken ct = default) => Task.FromResult(Events[slug]);
         public Task<IReadOnlyList<NotificationLogRecord>> GetNotificationsAsync(string period, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<NotificationLogRecord>>([]);
         public Task<NotificationLogRecord> LogNotificationAsync(NotificationLogRecord record, CancellationToken ct = default) => Task.FromResult(record);
+    }
+
+    private sealed class ReconciliationApi(FakeApiClient api) : IOpportunityApiClient
+    {
+        public Task<OpportunityRecord> ReconcileOpportunitySubmissionsAsync(string slug, string expectedETag, CancellationToken ct = default)
+        {
+            var record = api.Events[slug];
+            Assert.Equal(record.ETag, expectedETag);
+            var status = api.Submissions[slug].Single().Status;
+            var opportunity = new OpportunityRecord
+            {
+                Event = record, UserStatus = OpportunityMapping.FromLegacy(record.Category), PlacementSource = PlacementSource.User,
+                ETag = record.RecordedSubmissionStatus == status ? expectedETag : "reconciled", RecordedSubmissionStatus = status,
+            };
+            api.Events[slug] = OpportunityMapping.Project(opportunity);
+            return Task.FromResult(opportunity);
+        }
+        public Task<IReadOnlyList<OpportunityRecord>> GetOpportunitiesAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OpportunityRecord?> GetOpportunityAsync(string slug, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<OpportunityHistoryEntry>> GetOpportunityHistoryAsync(string slug, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<OpportunityHistoryEntry>> GetOpportunityFeedbackAsync(int limit = 20, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OpportunityRecord> ApplyOpportunityActionAsync(string slug, OpportunityActionRequest request, string expectedETag, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<OpportunityRecord> PostOpportunityDecisionAsync(OpportunityScoringRequest request, CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

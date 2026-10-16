@@ -20,7 +20,27 @@ public sealed record Notification
 
     /// <summary>Slug of the Event/Topic this refers to, for the log.</summary>
     public string? EntityRef { get; init; }
+
+    public string? DeliveryKey { get; init; }
+    public IReadOnlyList<NotificationGroup> Groups { get; init; } = [];
 }
+
+public sealed record NotificationGroup(string Title, IReadOnlyList<NotificationItem> Items);
+public sealed record NotificationItem
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public string? Url { get; init; }
+    public required string Detail { get; init; }
+    public bool Actions { get; init; }
+    public string? EventSlug { get; init; }
+    public string? ExpectedETag { get; init; }
+    public string? DecisionId { get; init; }
+}
+
+public sealed record NotificationPart(string Id, Notification Notification, string? Text = null,
+    IReadOnlyList<NotificationItem>? Items = null);
+public sealed record NotificationDelivery(string Status, IReadOnlyList<string>? MessageIds = null);
 
 /// <summary>One line of a digest — a generic shape so the Notifier stays decoupled from any agent.</summary>
 public sealed record DigestItem(string Title, bool IsNew, string Detail);

@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
     <ProjectReference Include="..\..\src\SpeakerPipeline.Agents.Scoring\SpeakerPipeline.Agents.Scoring.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Catalog\SpeakerPipeline.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>

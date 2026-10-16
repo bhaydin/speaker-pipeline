@@ -33,8 +33,14 @@ public static class ScoringEndpoints
         return routes;
     }
 
-    private static async Task<IResult> GetCandidates(IEventRepository events, CancellationToken ct)
+    private static async Task<IResult> GetCandidates(IEventRepository events, IConfiguration config, IServiceProvider services, CancellationToken ct)
     {
+        if (config.GetValue<bool>("Storage:OpportunitiesEnabled"))
+        {
+            var opportunities = await services.GetRequiredService<IOpportunityRepository>().GetAllAsync(ct);
+            return Results.Ok(opportunities.Where(o => !o.DoNotResurface && o.RecordedSubmissionStatus is not (SubmissionStatus.Submitted or SubmissionStatus.InReview or SubmissionStatus.Accepted) && o.Status is OpportunityStatus.New or OpportunityStatus.Monitor or OpportunityStatus.Outreach or OpportunityStatus.SubmitNow or OpportunityStatus.Drafting or OpportunityStatus.NotPursuing)
+                .Select(OpportunityMapping.Project).OrderBy(e => e.CfpDeadline ?? DateTimeOffset.MaxValue).ToArray());
+        }
         var byCategory = await events.GetByCategoryAsync(CandidateCategories, ct);
         var filtered = byCategory
             .Where(e => !e.DoNotResurface)
@@ -51,18 +57,27 @@ public static class ScoringEndpoints
     ///   Outreach  → Outreach
     ///   Monitor   → Monitor
     ///   Pass      → Pass
-    ///   Skip      → Skip + DoNotResurface=true
+    ///   Skip      → Pass, without changing explicit suppression
     /// </summary>
-    private static async Task<IResult> PostDecision(ScoringDecision decision, IEventRepository events, CancellationToken ct)
+    private static async Task<IResult> PostDecision(ScoringDecision decision, IEventRepository events, IConfiguration config, CancellationToken ct)
     {
+        if (config.GetValue<bool>("Storage:OpportunitiesEnabled"))
+            return Results.Problem("Use the conditional opportunity decision endpoint after authority cutover.", statusCode: 409);
         var existing = await events.GetAsync(decision.EventSlug, ct);
         if (existing is null)
         {
             return Results.Problem($"Unknown event '{decision.EventSlug}'.", statusCode: StatusCodes.Status404NotFound);
         }
 
+        try
+        {
+            OpportunityDecisionPolicy.Validate(new OpportunityRecord { Event = existing }, new OpportunityScoringRequest
+            {
+                Decision = decision, ExpectedETag = "legacy", ScoringInputRevision = existing.ScoringInputRevision, IdempotencyKey = "legacy-validation",
+            }, DateTimeOffset.UtcNow);
+        }
+        catch (ArgumentException ex) { return Results.Problem(ex.Message, statusCode: 400); }
         var (category, priority) = MapRecommendation(decision);
-        var doNotResurface = existing.DoNotResurface || decision.Recommendation == Recommendation.Skip;
 
         var updated = existing with
         {
@@ -70,7 +85,7 @@ public static class ScoringEndpoints
             Priority = priority,
             NextAction = ShortRationale(decision),
             DecidedByAgent = decision.DecidedByAgent ?? existing.DecidedByAgent,
-            DoNotResurface = doNotResurface,
+            DoNotResurface = existing.DoNotResurface,
         };
 
         await events.UpsertAsync(updated, ct);

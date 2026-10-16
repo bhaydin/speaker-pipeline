@@ -84,7 +84,7 @@ internal static class MigrationCli
                 var export = new SnapshotFile(options.Api.AbsoluteUri, snapshot);
                 ManifestBuilder.ValidateSnapshot(export, options.Api);
                 PrivateFiles.WriteNew(options.Output!, export);
-                await output.WriteLineAsync($"Snapshot exported: {snapshot.Tables.Values.Sum(t => t.Count)} rows in six tables; writers frozen: {snapshot.WritersFrozen}. SHA-256: {snapshot.Checksum}.");
+                await output.WriteLineAsync($"Snapshot exported: {snapshot.Tables.Values.Sum(t => t.Count)} rows in {snapshot.Tables.Count} tables; writers frozen: {snapshot.WritersFrozen}. SHA-256: {snapshot.Checksum}.");
                 return 0;
             }
             if (options.Command == "preview")
@@ -93,6 +93,23 @@ internal static class MigrationCli
                 var manifest = ManifestBuilder.Build(export, options.Api);
                 PrivateFiles.WriteNew(options.Output!, manifest);
                 await output.WriteLineAsync($"Cleanup preview: {manifest.Plan.Changes.Count} exact changes; {manifest.Review.Count(r => r.Disposition == "retain-review")} retained for review. No API writes. Operation: {manifest.Plan.OperationId}.");
+                return 0;
+            }
+            if (options.Command == "migrate-opportunities")
+            {
+                var export = PrivateFiles.Read<SnapshotFile>(options.Source!);
+                ManifestBuilder.ValidateSnapshot(export, options.Api);
+                if (!export.Snapshot.WritersFrozen) throw new ArgumentException("Opportunity migration requires a frozen source snapshot.");
+                var receiptPath = PrivateFiles.ValidatePath(options.Output!);
+                Directory.CreateDirectory(Path.GetDirectoryName(receiptPath)!);
+                using var receipt = new FileStream(receiptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                JsonSerializer.Serialize(receipt, new { export.Snapshot.Checksum, Status = "interrupted-or-failed; replay the same snapshot" }, PrivateFiles.Json);
+                receipt.Flush(flushToDisk: true);
+                var migrated = await PostAsync<OpportunityMigrationRequest, OpportunityMigrationResult>(http, "v1/admin/data/opportunities/migrate", new() { Snapshot = export.Snapshot, Apply = options.Apply });
+                if (migrated.SnapshotChecksum != export.Snapshot.Checksum) throw new ArgumentException("Migration response did not match its snapshot.");
+                receipt.Position = 0; receipt.SetLength(0);
+                JsonSerializer.Serialize(receipt, migrated, PrivateFiles.Json); receipt.Flush(flushToDisk: true);
+                await output.WriteLineAsync($"Opportunity migration {(migrated.Applied ? "applied" : "previewed")}: {migrated.SourceCount} source records, {migrated.ExistingCount} already copied, {migrated.CreatedCount} created. Authority is unchanged.");
                 return 0;
             }
             if (options.Command == "restore-snapshot")

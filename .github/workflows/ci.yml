@@ -71,7 +71,22 @@ jobs:
       - name: Build
         run: dotnet build SpeakerPipeline.slnx --configuration Release --no-restore
 
+      - name: Start isolated storage emulator
+        run: |
+          npm install --global azurite@3.35.0
+          # The SDK can ship a newer service-version header than this pinned emulator.
+          # Exercise actual blob/table operations and ETags without its header-only gate.
+          azurite --silent --skipApiVersionCheck --location "$RUNNER_TEMP/azurite" > "$RUNNER_TEMP/azurite.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --silent --output /dev/null http://127.0.0.1:10002/devstoreaccount1; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+
       - name: All unit tests and both agent eval suites (blocking)
+        env:
+          PIPELINE_AZURITE_MAINTENANCE_TEST: "1"
+          PIPELINE_AZURITE_CONNECTION_STRING: UseDevelopmentStorage=true
         run: dotnet test SpeakerPipeline.slnx --configuration Release --no-build --logger trx
 
       - name: Validate production infrastructure

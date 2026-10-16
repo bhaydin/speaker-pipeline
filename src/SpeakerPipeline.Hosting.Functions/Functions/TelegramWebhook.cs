@@ -20,7 +20,9 @@ public sealed class TelegramWebhook(
     TelegramCommandRouter router,
     TelegramClient client,
     IOptions<TelegramOptions> options,
-    ILogger<TelegramWebhook> logger)
+    ILogger<TelegramWebhook> logger,
+    TelegramInteractions interactions,
+    TimeProvider time)
 {
     private const string SecretHeader = "X-Telegram-Bot-Api-Secret-Token";
 
@@ -71,10 +73,19 @@ public sealed class TelegramWebhook(
 
         if (update is not null)
         {
+            if (update.CallbackQuery is { } callback)
+            {
+                await interactions.HandleAsync(callback, ct);
+                return request.CreateResponse(HttpStatusCode.OK);
+            }
             var reply = await router.RouteAsync(update, ct);
             if (reply is not null)
             {
-                await client.SendMessageAsync(reply.ChatId, reply.Text, ct);
+                // Command replies stay immediate; format as bounded messages too.
+                foreach (var part in SpeakerPipeline.Telegram.TelegramMessageFormatter.Parts(new SpeakerPipeline.Notifications.Notification
+                    { Subject = "Speaker pipeline", HtmlBody = reply.Text }))
+                    await client.SendAsync(reply.ChatId, part.Text!, null,
+                        SpeakerPipeline.Notifications.PipelineHealth.IsQuiet(time.GetUtcNow()), ct);
             }
         }
 

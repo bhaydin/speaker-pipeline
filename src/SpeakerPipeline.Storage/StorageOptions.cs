@@ -24,6 +24,15 @@ public sealed class StorageOptions
     public string? ConnectionString { get; set; }
 
     public string EventsTableName { get; set; } = "Events";
+    public string OpportunitiesTableName { get; set; } = "Opportunities";
+    /// <summary>Cutover gate: false keeps the legacy Events authority. Enable only after frozen migration verification.</summary>
+    public bool OpportunitiesEnabled { get; set; }
+    /// <summary>Includes Opportunities in snapshots before authority is switched; enable after table provisioning.</summary>
+    public bool OpportunitiesProvisioned { get; set; }
+    public string CatalogTableName { get; set; } = "Catalog";
+    public bool CatalogProvisioned { get; set; }
+    public string OperationsTableName { get; set; } = "Operations";
+    public bool OperationsProvisioned { get; set; }
     public string SubmissionsTableName { get; set; } = "Submissions";
     public string TalksTableName { get; set; } = "Talks";
     public string TopicsTableName { get; set; } = "Topics";

@@ -68,7 +68,7 @@ jobs:
           (cd release && sha256sum --check SHA256SUMS)
           jq -e --arg sha "$RELEASE_SHA" --arg run "$CI_RUN_ID" '.sha == $sha and .ciRunId == $run' release/release.json > /dev/null
           # Operational controls belong to the operator, never the package.
-          jq -e '[keys[] | select(test("^(Maintenance__|Notifications__|Telegram__Enabled$|AzureWebJobs\\.)"))] | length == 0' release/functions.settings.json > /dev/null
+          jq -e '[keys[] | select(test("^(Maintenance__|Notifications__|Telegram__Enabled$|Storage__(OpportunitiesEnabled|OpportunitiesProvisioned|CatalogProvisioned|OperationsProvisioned)$|Pipeline__OpportunitiesEnabled$|ScoringAgent__CatalogEnabled$|Catalog__Enabled$|Dashboard__Enabled$|AzureWebJobs\\.)"))] | length == 0' release/functions.settings.json > /dev/null
 
       - name: Azure login (production OIDC)
         uses: azure/login@v2
@@ -90,7 +90,7 @@ jobs:
           az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" -o json > "$RUNNER_TEMP/api-settings.json"
           az functionapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" -o json > "$RUNNER_TEMP/functions-settings.json"
           for app in api functions; do
-            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls.json"
+            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|Storage__(OpportunitiesEnabled|OpportunitiesProvisioned|CatalogProvisioned|OperationsProvisioned)$|Pipeline__OpportunitiesEnabled$|ScoringAgent__CatalogEnabled$|Catalog__Enabled$|Dashboard__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls.json"
             jq '[.[] | select(.name == "Release__CommitSha" or .name == "Release__CiRunId")]' "$RUNNER_TEMP/$app-settings.json" > "release-record/previous-$app.json"
           done
           cp release/release.json release-record/requested-release.json
@@ -100,7 +100,7 @@ jobs:
       - name: Pin runtime mode and apply additive application configuration
         run: |
           set -euo pipefail
-          az webapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --output none --settings ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
+          az webapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --output none --settings ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production ASPNETCORE_FORWARDEDHEADERS_ENABLED=true Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
           az functionapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --output none --settings @release/functions.settings.json AZURE_FUNCTIONS_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
 
       - name: Deploy API
@@ -153,7 +153,7 @@ jobs:
           token=$(az account get-access-token --scope "$API_SCOPE" --query accessToken -o tsv)
           echo "::add-mask::$token"
           expect_status 200 "$host" /health/ready -H "Authorization: Bearer $token"
-          paths=(/health/ready /v1/events /v1/talks /v1/events/readiness-probe/submissions /v1/topics /v1/blackouts "/v1/notifications/$(date -u +%Y-%m)")
+          paths=(/health/ready /v1/events /v1/talks /v1/events/readiness-probe/submissions /v1/topics /v1/blackouts /v1/operations/runs "/v1/notifications/$(date -u +%Y-%m)")
           for path in "${paths[@]}"; do
             expect_status 401 "$host" "$path"
             expect_status 401 "$host" "$path" -H 'Authorization: Bearer dev'
@@ -175,7 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/expect-http-status.sh"
-          expected='["ScoringAgentHttpTrigger","ScoringAgentTimerTrigger","TrackerMaintenanceHttpTrigger","TrackerMaintenanceTimerTrigger","DiscoveryHttpTrigger","DiscoveryTimerTrigger","TelegramWebhook","IngestHttpTrigger","ReadinessHttpTrigger"]'
+          expected='["ScoringAgentHttpTrigger","ScoringAgentTimerTrigger","TrackerMaintenanceHttpTrigger","TrackerMaintenanceTimerTrigger","DiscoveryHttpTrigger","DiscoveryTimerTrigger","TelegramWebhook","IngestHttpTrigger","ReadinessHttpTrigger","WeeklyHealthTimerTrigger","CatalogWebhook","CatalogSyncWorker","CatalogNightlySync","NotificationRetryTimerTrigger"]'
           for attempt in $(seq 1 18); do
             names=$(az functionapp function list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query '[].name' -o json 2>/dev/null || echo '[]')
             if jq -e --argjson expected "$expected" 'map(split("/")[-1]) as $actual | ($expected - $actual | length) == 0' <<< "$names" > /dev/null; then break; fi
@@ -196,7 +196,7 @@ jobs:
           az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" -o json > "$RUNNER_TEMP/api-settings.json"
           az functionapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" -o json > "$RUNNER_TEMP/functions-settings.json"
           for app in api functions; do
-            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls-after.json"
+            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|Storage__(OpportunitiesEnabled|OpportunitiesProvisioned|CatalogProvisioned|OperationsProvisioned)$|Pipeline__OpportunitiesEnabled$|ScoringAgent__CatalogEnabled$|Catalog__Enabled$|Dashboard__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls-after.json"
             diff -u "$RUNNER_TEMP/$app-controls.json" "$RUNNER_TEMP/$app-controls-after.json"
           done
           rm "$RUNNER_TEMP/api-settings.json" "$RUNNER_TEMP/functions-settings.json"

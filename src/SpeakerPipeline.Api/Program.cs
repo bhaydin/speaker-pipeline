@@ -26,6 +26,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSpeakerPipelineStorage(builder.Configuration, builder.Environment.EnvironmentName);
 builder.Services.AddPipelineMaintenanceStorage(builder.Configuration);
 builder.Services.AddSpeakerPipelineAuth(builder.Configuration, builder.Environment);
+builder.Services.AddDashboardAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddPipelineOperations(builder.Configuration);
+builder.Services.AddCatalogStorage(builder.Configuration);
 builder.Services.AddSpeakerPipelineObservability(builder.Configuration, builder.Environment);
 
 builder.Services.AddValidatorsFromAssemblyContaining<EventUpsertValidator>();
@@ -42,6 +45,13 @@ app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+if (app.Configuration.GetValue<bool>("Dashboard:Enabled"))
+{
+    app.UseDashboardCsrf();
+    app.UseBlazorFrameworkFiles("/dashboard");
+    app.UseStaticFiles();
+}
 
 app.Use(async (context, next) =>
 {
@@ -68,6 +78,11 @@ app.MapBlackoutsApi();
 app.MapPipelineApi();
 app.MapNotificationsApi();
 app.MapMaintenanceApi();
+app.MapOpportunitiesApi();
+app.MapOpportunityMigrationApi();
+app.MapCatalogApi();
+app.MapOperationsApi();
+app.MapDashboard();
 
 app.Run();
 
