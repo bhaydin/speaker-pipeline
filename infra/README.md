@@ -1,49 +1,79 @@
-# Infrastructure (`infra/`)
+# Production infrastructure
 
-Bicep for the speaker pipeline's Azure footprint, deployed to Brian's personal
-tenant. Milestone 1 provisions the **core resources**; the Functions-hosted MCP
-server adds its own module later.
+This repository operates **one production environment**. Existing Azure names
+ending in `dev` are retained to preserve resource IDs, URLs and data. They do not
+select a development deployment. Local development uses isolated emulators and
+test fixtures.
 
-## What Milestone 1 creates
+## Existing estate
 
-| Resource | Module | Notes |
+| Component | Resource | Management |
 |---|---|---|
-| Resource group | `main.bicep` | `rg-<prefix>-<env>` |
-| User-assigned managed identity | `modules/identity.bicep` | Shared by API + MCP; holds all data-plane roles |
-| Storage account (Tables + Blob) | `modules/storage.bicep` | 6 tables + `artifacts` container; managed-identity only |
-| Key Vault (standard, RBAC) | `modules/keyvault.bicep` | Secrets added out-of-band per milestone |
-| Log Analytics + App Insights | `modules/appinsights.bicep` | Workspace-based; OTel export target |
-| Role assignments | `modules/rbac.bicep` | Table/Blob Data Contributor + Key Vault Secrets User |
+| Compute/data resource group | `rg-speakerpipeline-dev` | Existing deployment target |
+| API / B1 plan | `app-speakerpipeline-api-dev` / `asp-speakerpipeline-dev` | Reconciled in place |
+| Agents / Flex plan | `func-speakerpipeline-dev` / `ASP-rgspeakerpipelinedev-902b` | Reconciled in place |
+| Pipeline data | `stspeakerpipelinedev` | Existing; six tables and private `artifacts` container |
+| Functions host/deployment storage | `stspeakerpipelinefuncdev` | Existing; never a cleanup target |
+| Shared services group | `rg-speakerpipeline-shared` | Existing |
+| API / agents managed identities | `mi-api-dev` / `mi-functions-dev` | Existing; separate access boundaries |
+| Key Vault / telemetry | `kv-speakerpipeline` / `appi-speakerpipeline` / `log-speakerpipeline` | Existing shared services |
+| Foundry | `foundry-speakerpipeline-dev` | Existing model deployments retained |
 
-The **Function App** (Flex Consumption) that hosts the MCP server ships as
-`modules/functions.bicep` with the MCP server commit — it belongs with the thing
-it hosts.
+The old greenfield templates and direct-storage provisioning path have been
+retired. There is no deployed MCP server in this estate; the MCP project remains
+available for local use. Unused `mi-api-prod` and `mi-functions-prod` identities
+are retirement candidates only after their assignments and dependencies have
+been inventoried.
 
-## Deploy
+## Preview and reconcile
 
-Requires the Azure CLI with the Bicep tooling and a signed-in session on the
-target subscription.
+`main.bicep` is **resource-group scoped**, unlike the retired subscription-scoped
+template. Use the already-selected production subscription, or pass an explicit
+subscription from private operator configuration. Always inspect what-if first:
 
 ```bash
-az deployment sub create \
-  --location centralus \
+az bicep build --file infra/main.bicep --stdout > /dev/null
+az deployment group what-if \
+  --resource-group rg-speakerpipeline-dev \
   --template-file infra/main.bicep \
   --parameters infra/main.bicepparam
 ```
 
-Override any parameter inline, e.g. `--parameters namePrefix=speakerpipe environment=dev`.
+Accept only in-place compute configuration/tag changes, existing table
+declarations, the private artifacts container and its API-only Blob Data
+Contributor assignment, and operational alerts. Stop for resource replacement,
+new compute/storage/Foundry resources, deletions, or a change to the host-storage
+deployment container. Apply the reviewed template incrementally during the
+rollout window; never use complete mode.
 
-## Design notes
+The templates **omit app settings** to avoid replacing authentication, runtime
+credentials, maintenance switches or notification controls. The release workflow
+merges application settings and explicitly pins `ASPNETCORE_ENVIRONMENT`,
+`DOTNET_ENVIRONMENT` and `AZURE_FUNCTIONS_ENVIRONMENT` to `Production` on their
+respective hosts. Operator-owned Key Vault references and identity settings must
+already be configured and are checked through authenticated readiness probes.
 
-- **No secrets, no IDs in source.** `main.bicepparam` carries only names and a
-  location. Subscription/tenant IDs come from the signed-in `az` context.
-- **Managed identity, not keys.** `allowSharedKeyAccess` is `false` on the
-  storage account; every consumer authenticates with the shared identity via
-  `DefaultAzureCredential`. This matches the app's `Storage:TableEndpoint`
-  configuration (endpoint URI only, no connection string).
-- **Names are generated for global uniqueness.** Storage account and Key Vault
-  names append `uniqueString(...)`; read the actual names from the deployment
-  outputs (`storageAccountName`, `keyVaultName`, `tableEndpoint`, ...).
-- **Table schema** lives in [../docs/architecture-table-storage.md](../docs/architecture-table-storage.md).
-  The three net-new tables (`Topics`, `Blackouts`, `NotificationLog`) are
-  provisioned here and modeled in `SpeakerPipeline.Core`.
+Only the API identity may access pipeline Tables or backup artifacts. Existing
+data roles are validated rather than recreated under new role-assignment IDs.
+The agents identity keeps its separate host-storage roles, Foundry access, Key
+Vault access and `Pipeline.Access` application role on the API.
+
+## Operational monitoring
+
+The alert module defines API/Functions failures and missing successful scheduled
+invocations. Expected schedules are Discovery daily 05:00 UTC, Tracker daily
+05:30 UTC and Scoring Monday 06:00 UTC, each with a two-hour grace period.
+Queries use workspace `AppRequests`, including the Functions host role and the
+worker's OpenTelemetry role. Request sampling is excluded in `host.json`.
+
+Alerts default disabled during cleanup. Supply an existing
+`alertActionGroupResourceId` privately and enable `alertsEnabled` after validating
+the role names, successful invocation telemetry and recipient delivery. An empty
+action group keeps rules disabled. Disable missed-run rules during planned
+maintenance and re-enable them on resume. Weekly scoring absence is checked on
+Monday after 08:00 UTC; its resolved state on Tuesday does not imply a recovered
+run, so inspect the incident and invocation history.
+
+See [the production rollout runbook](../docs/production-rollout.md) for release,
+maintenance, rollback and GitHub setup. API data schemas remain in the
+[storage specification](../docs/architecture-table-storage.md).

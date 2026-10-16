@@ -7,6 +7,7 @@ using SpeakerPipeline.Agents.Discovery;
 using SpeakerPipeline.Agents.Scoring;
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Client;
+using SpeakerPipeline.Core;
 using SpeakerPipeline.Hosting.Functions.Observability;
 using SpeakerPipeline.Notifications;
 using SpeakerPipeline.Telegram;
@@ -19,6 +20,8 @@ var host = new HostBuilder()
     })
     .ConfigureServices((ctx, services) =>
     {
+        RuntimeSafety.ValidateConsumer(ctx.HostingEnvironment.EnvironmentName, RuntimeSafety.IsAzureHost,
+            ctx.Configuration["SpeakerPipelineApi:BaseUrl"], ctx.Configuration["SpeakerPipelineApi:Scope"]);
         // OpenTelemetry → Azure Monitor. Without this the isolated worker's dependency
         // telemetry never reached App Insights, leaving the agents blind.
         // The Telegram bot token is redacted from HTTP spans here (see the extension).
@@ -76,7 +79,7 @@ internal sealed class BearerTokenHandler(IConfiguration configuration, IHostEnvi
         var scope = configuration["SpeakerPipelineApi:Scope"];
         if (string.IsNullOrWhiteSpace(scope))
         {
-            return null;
+            throw new InvalidOperationException("SpeakerPipelineApi:Scope is required outside local Development.");
         }
 
         var token = await _credential.Value.GetTokenAsync(

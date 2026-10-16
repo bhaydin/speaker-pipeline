@@ -26,7 +26,6 @@
          that AspNetCore.OpenApi pulls transitively. See Directory.Packages.props. -->
     <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="Microsoft.Identity.Web" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="Azure.Identity" />

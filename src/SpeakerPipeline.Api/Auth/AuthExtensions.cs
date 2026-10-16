@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using SpeakerPipeline.Core;
 
 namespace SpeakerPipeline.Api.Auth;
 
@@ -10,26 +11,23 @@ namespace SpeakerPipeline.Api.Auth;
 /// so the dev loop is not blocked on issuing real tokens. Any non-empty
 /// bearer is accepted via the <see cref="DevAuthenticationHandler"/>.
 ///
-/// PRODUCTION CHECKLIST — see CLAUDE.md "API as the only data boundary":
-///   1. Set Authentication:Authority and Authentication:Audience from Key Vault.
-///      Authority example: https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0
-///   2. Register an Entra ID app for the API and one per consumer
-///      (Functions host, OpenClaw runtime). Grant scope or app-role
-///      assignments accordingly.
-///   3. Assign managed identities to the Function App and the OpenClaw host;
-///      grant them the API's scope.
-///   4. Remove or feature-flag the DevAuthenticationHandler so it cannot
-///      load in production environments.
+/// Production callers require the Pipeline.Access app role. Maintenance also
+/// requires the separate operator-only Pipeline.Maintenance role and a bounded
+/// maintenance window. Azure hosts reject Development configuration at startup.
 /// </summary>
 public static class AuthExtensions
 {
     public const string PolicyName = "SpeakerPipelineUser";
+    public const string MaintenancePolicyName = "PipelineMaintenance";
+    public const string AccessRole = "Pipeline.Access";
+    public const string MaintenanceRole = "Pipeline.Maintenance";
 
     public static IServiceCollection AddSpeakerPipelineAuth(
         this IServiceCollection services,
         IConfiguration configuration,
         IHostEnvironment environment)
     {
+        RuntimeSafety.ValidateHost(environment.EnvironmentName, RuntimeSafety.IsAzureHost);
         var authSection = configuration.GetSection("Authentication");
 
         var builder = services
@@ -37,8 +35,7 @@ public static class AuthExtensions
 
         if (environment.IsDevelopment())
         {
-            // Dev: accept any bearer token so contributors can exercise endpoints
-            // without configuring Entra. Replace before any non-dev deploy.
+            // Local development only; the host guard above rejects this in Azure.
             builder.AddScheme<DevAuthenticationOptions, DevAuthenticationHandler>(
                 JwtBearerDefaults.AuthenticationScheme,
                 options => { /* defaults */ });
@@ -75,12 +72,15 @@ public static class AuthExtensions
             builder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.Authority = authority;
+                options.MapInboundClaims = false;
                 var parameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
+                    RoleClaimType = "roles",
+                    NameClaimType = "name",
                     // Accept both the client-ID GUID and the api://<client-id> App ID
                     // URI. v2.0 access tokens carry the GUID in `aud`; v1.0 tokens carry
                     // the URI. Accepting both avoids 401s that hinge on how the caller
@@ -106,7 +106,9 @@ public static class AuthExtensions
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy(PolicyName, policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy(PolicyName, policy => policy.RequireAuthenticatedUser().RequireRole(AccessRole));
+            options.AddPolicy(MaintenancePolicyName, policy =>
+                policy.RequireAuthenticatedUser().RequireRole(AccessRole).RequireRole(MaintenanceRole));
             options.DefaultPolicy = options.GetPolicy(PolicyName)!;
         });
 

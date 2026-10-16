@@ -1,0 +1,178 @@
+name: Release production
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run containing the release (or rollback) artifact
+        required: true
+        type: string
+      commit_sha:
+        description: Full 40-character SHA tested by that CI run
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: speaker-pipeline-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CI_RUN_ID: ${{ inputs.ci_run_id }}
+      RELEASE_SHA: ${{ inputs.commit_sha }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      AZURE_FUNCTIONAPP_NAME: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
+      API_SCOPE: ${{ vars.API_SCOPE }}
+    steps:
+      - name: Verify successful main CI provenance and production configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$CI_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          for key in AZURE_RESOURCE_GROUP AZURE_WEBAPP_NAME AZURE_FUNCTIONAPP_NAME API_SCOPE; do
+            test -n "${!key}" || { echo "::error::Missing production variable $key"; exit 1; }
+          done
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID" > "$RUNNER_TEMP/ci-run.json"
+          jq -e --arg sha "$RELEASE_SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .conclusion == "success" and .status == "completed" and
+            .head_sha == $sha and .head_branch == "main" and
+            .head_repository.full_name == $repo and
+            .path == ".github/workflows/ci.yml" and
+            (.event == "push" or .event == "workflow_dispatch")
+          ' "$RUNNER_TEMP/ci-run.json" > /dev/null
+
+      - name: Download tested packages (never rebuild in deployment)
+        uses: actions/download-artifact@v4
+        with:
+          name: production-release-${{ inputs.commit_sha }}
+          path: release
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.ci_run_id }}
+
+      - name: Verify package checksums and manifest
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum --check SHA256SUMS)
+          jq -e --arg sha "$RELEASE_SHA" --arg run "$CI_RUN_ID" '.sha == $sha and .ciRunId == $run' release/release.json > /dev/null
+          # Operational controls belong to the operator, never the package.
+          jq -e '[keys[] | select(test("^(Maintenance__|Notifications__|Telegram__Enabled$|AzureWebJobs\\.)"))] | length == 0' release/functions.settings.json > /dev/null
+
+      - name: Azure login (production OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Record rollback reference and operational switches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-record
+          # Settings identify an attempted release; this successful workflow is
+          # the authoritative recovery reference after a partial deployment.
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?status=success&branch=main&per_page=1" \
+            --jq '[.workflow_runs[] | {id, html_url, conclusion}]' > release-record/last-successful-release.json
+          az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" -o json > "$RUNNER_TEMP/api-settings.json"
+          az functionapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" -o json > "$RUNNER_TEMP/functions-settings.json"
+          for app in api functions; do
+            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls.json"
+            jq '[.[] | select(.name == "Release__CommitSha" or .name == "Release__CiRunId")]' "$RUNNER_TEMP/$app-settings.json" > "release-record/previous-$app.json"
+          done
+          cp release/release.json release-record/requested-release.json
+          # Full appsettings may contain secrets; never print or upload them.
+          rm "$RUNNER_TEMP/api-settings.json" "$RUNNER_TEMP/functions-settings.json"
+
+      - name: Pin runtime mode and apply additive application configuration
+        run: |
+          set -euo pipefail
+          az webapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --output none --settings ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
+          az functionapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --output none --settings @release/functions.settings.json AZURE_FUNCTIONS_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
+
+      - name: Deploy API
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: release/api.zip
+
+      - name: Verify API health and authorization before deploying consumers
+        run: |
+          set -euo pipefail
+          host=$(az webapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --query defaultHostName -o tsv)
+          for attempt in $(seq 1 18); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/health" || true)
+            if [ "$code" = 200 ]; then break; fi
+            if [ "$attempt" = 18 ]; then echo '::error::API health did not recover'; exit 1; fi
+            sleep 10
+          done
+          paths=(/health/ready /v1/events /v1/talks /v1/events/readiness-probe/submissions /v1/topics /v1/blackouts "/v1/notifications/$(date -u +%Y-%m)")
+          for path in "${paths[@]}"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://$host$path")
+            test "$code" = 401 || { echo "::error::Anonymous request accepted or auth failed on $path: $code"; exit 1; }
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H 'Authorization: Bearer dev' "https://$host$path")
+            test "$code" = 401 || { echo "::error::Invalid token accepted or auth failed on $path: $code"; exit 1; }
+          done
+          token=$(az account get-access-token --scope "$API_SCOPE" --query accessToken -o tsv)
+          echo "::add-mask::$token"
+          for path in "${paths[@]}"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer $token" "https://$host$path")
+            test "$code" = 200 || { echo "::error::Authenticated data check failed on $path: $code"; exit 1; }
+          done
+
+      - name: Deploy agents Functions host
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
+          package: release/functions.zip
+          sku: flexconsumption
+
+      - name: Verify functions indexed and preserve operational switches
+        run: |
+          set -euo pipefail
+          expected='["ScoringAgentHttpTrigger","ScoringAgentTimerTrigger","TrackerMaintenanceHttpTrigger","TrackerMaintenanceTimerTrigger","DiscoveryHttpTrigger","DiscoveryTimerTrigger","TelegramWebhook","IngestHttpTrigger","ReadinessHttpTrigger"]'
+          for attempt in $(seq 1 18); do
+            names=$(az functionapp function list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query '[].name' -o json 2>/dev/null || echo '[]')
+            if jq -e --argjson expected "$expected" 'map(split("/")[-1]) as $actual | ($expected - $actual | length) == 0' <<< "$names" > /dev/null; then break; fi
+            if [ "$attempt" = 18 ]; then echo '::error::Expected functions did not index'; exit 1; fi
+            sleep 15
+          done
+          functionsHost=$(az functionapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query defaultHostName -o tsv)
+          readinessKey=$(az functionapp keys list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query functionKeys.default -o tsv)
+          test -n "$readinessKey"
+          echo "::add-mask::$readinessKey"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 -H "x-functions-key: $readinessKey" "https://$functionsHost/api/readiness")
+          test "$code" = 200 || { echo "::error::Functions dependency readiness failed: $code"; exit 1; }
+          az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" -o json > "$RUNNER_TEMP/api-settings.json"
+          az functionapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" -o json > "$RUNNER_TEMP/functions-settings.json"
+          for app in api functions; do
+            jq '[.[] | select(.name | test("^(Maintenance__(Enabled|FreezeWrites)$|Notifications__(SuppressEmptyScheduledRuns|Email__Enabled)$|Telegram__Enabled$|AzureWebJobs\\..*\\.Disabled$)"))] | sort_by(.name)' "$RUNNER_TEMP/$app-settings.json" > "$RUNNER_TEMP/$app-controls-after.json"
+            diff -u "$RUNNER_TEMP/$app-controls.json" "$RUNNER_TEMP/$app-controls-after.json"
+          done
+          rm "$RUNNER_TEMP/api-settings.json" "$RUNNER_TEMP/functions-settings.json"
+          echo "Released tested commit $RELEASE_SHA from CI run $CI_RUN_ID. Operational switches were preserved." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain release and rollback references
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-record-${{ github.run_id }}
+          path: release-record/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Azure logout
+        if: always()
+        run: az logout

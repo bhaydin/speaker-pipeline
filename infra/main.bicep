@@ -1,136 +1,146 @@
-// -----------------------------------------------------------------------------
-// Speaker Pipeline — Milestone 1 core infrastructure.
-//
-// Subscription-scoped: creates the resource group, then deploys the shared
-// identity, storage (Tables + Blob), Key Vault, and workspace-based App
-// Insights, and wires managed-identity RBAC. No Function App here — that ships
-// with the MCP server module (infra/modules/functions.bicep) in the MCP commit.
-//
-// Deploy:
-//   az deployment sub create \
-//     --location <location> \
-//     --template-file infra/main.bicep \
-//     --parameters infra/main.bicepparam
-// -----------------------------------------------------------------------------
+// Brownfield reconciliation of the ONE production deployment.
+// Deploy incrementally to rg-speakerpipeline-dev. Physical names are retained;
+// the dev suffix is historical and never selects an environment.
+targetScope = 'resourceGroup'
 
-targetScope = 'subscription'
+param location string = resourceGroup().location
+param apiAppName string = 'app-speakerpipeline-api-dev'
+param apiPlanName string = 'asp-speakerpipeline-dev'
+param functionsAppName string = 'func-speakerpipeline-dev'
+param functionsPlanName string = 'ASP-rgspeakerpipelinedev-902b'
+param dataStorageAccountName string = 'stspeakerpipelinedev'
+param hostStorageAccountName string = 'stspeakerpipelinefuncdev'
+param deploymentContainerName string = 'app-package-func-speakerpipeline-dev-2c02758'
+param sharedResourceGroupName string = 'rg-speakerpipeline-shared'
+param apiIdentityName string = 'mi-api-dev'
+param functionsIdentityName string = 'mi-functions-dev'
+param keyVaultName string = 'kv-speakerpipeline'
+param appInsightsName string = 'appi-speakerpipeline'
+param workspaceName string = 'log-speakerpipeline'
+param foundryAccountName string = 'foundry-speakerpipeline-dev'
 
-@description('Location for the resource group and all resources.')
-param location string = 'centralus'
+@description('Existing action group receiving operational alerts. Required when alertsEnabled is true.')
+param alertActionGroupResourceId string = ''
 
-@description('Short prefix for resource names (lowercase letters/numbers).')
-@minLength(3)
-@maxLength(12)
-param namePrefix string = 'speakerpipe'
+@description('Enable only after maintenance is complete and telemetry routing has been verified.')
+param alertsEnabled bool = false
 
-@description('Environment moniker baked into names and tags.')
-@allowed([
-  'dev'
-  'prod'
-])
-param environment string = 'prod'
-
-@description('Tags applied to the resource group and propagated to resources.')
-param tags object = {
+var tags = {
   project: 'speaker-pipeline'
-  environment: environment
+  environment: 'production'
   managedBy: 'bicep'
+  'cost-center': 'personal-rd'
 }
 
-@description('Base URL of the deployed pipeline API for the MCP host. Empty until the API is deployed.')
-param apiBaseUrl string = ''
-
-@description('Entra scope the MCP host requests when calling the API. Empty until Entra auth is configured.')
-param apiScope string = ''
-
-var resourceGroupName = 'rg-${namePrefix}-${environment}'
-
-resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: resourceGroupName
-  location: location
-  tags: tags
+// Data, host storage, Foundry, Key Vault and shared identities already exist.
+// Never recreate these resources or put host queues in the pipeline data store.
+resource dataStorage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: dataStorageAccountName
+}
+resource hostStorage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: hostStorageAccountName
+}
+resource apiIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: apiIdentityName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+resource functionsIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: functionsIdentityName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
+  name: appInsightsName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: workspaceName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+resource foundry 'Microsoft.CognitiveServices/accounts@2024-10-01' existing = {
+  name: foundryAccountName
 }
 
-module identity 'modules/identity.bicep' = {
-  name: 'identity'
-  scope: rg
+module api 'api.bicep' = {
+  name: 'production-api'
   params: {
     location: location
-    namePrefix: namePrefix
-    environment: environment
+    appName: apiAppName
+    planName: apiPlanName
+    sharedResourceGroupName: sharedResourceGroupName
+    dataStorageAccountName: dataStorageAccountName
+    apiIdentityName: apiIdentityName
+    appInsightsName: appInsightsName
     tags: tags
   }
 }
 
-module storage 'modules/storage.bicep' = {
-  name: 'storage'
-  scope: rg
+module agents 'modules/agents-functions.bicep' = {
+  name: 'production-agents'
   params: {
     location: location
-    namePrefix: namePrefix
+    appName: functionsAppName
+    planName: functionsPlanName
+    hostStorageAccountName: hostStorage.name
+    deploymentContainerName: deploymentContainerName
+    managedIdentityResourceId: functionsIdentity.id
+    appInsightsResourceId: appInsights.id
     tags: tags
   }
 }
 
-module keyvault 'modules/keyvault.bicep' = {
-  name: 'keyvault'
-  scope: rg
+module tables 'data-tables.bicep' = {
+  name: 'production-data-tables'
+  params: {
+    storageAccountName: dataStorage.name
+  }
+}
+
+// The maintenance API writes private exports/manifests/journals here. No agent
+// identity receives a role on the pipeline data account.
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' existing = {
+  parent: dataStorage
+  name: 'default'
+}
+resource artifacts 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'artifacts'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+var blobContributorRole = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+resource apiArtifactsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(artifacts.id, apiIdentity.id, blobContributorRole)
+  scope: artifacts
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', blobContributorRole)
+    principalId: apiIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module alerts 'modules/alerts.bicep' = {
+  name: 'production-alerts'
   params: {
     location: location
-    namePrefix: namePrefix
+    workspaceResourceId: workspace.id
+    apiAppName: apiAppName
+    functionsAppName: functionsAppName
+    actionGroupResourceId: alertActionGroupResourceId
+    enabled: alertsEnabled
     tags: tags
   }
 }
 
-module observability 'modules/appinsights.bicep' = {
-  name: 'appinsights'
-  scope: rg
-  params: {
-    location: location
-    namePrefix: namePrefix
-    environment: environment
-    tags: tags
-  }
-}
-
-module rbac 'modules/rbac.bicep' = {
-  name: 'rbac'
-  scope: rg
-  params: {
-    storageAccountName: storage.outputs.storageAccountName
-    keyVaultName: keyvault.outputs.keyVaultName
-    principalId: identity.outputs.principalId
-  }
-}
-
-module functions 'modules/functions.bicep' = {
-  name: 'functions-mcp'
-  scope: rg
-  params: {
-    location: location
-    namePrefix: namePrefix
-    environment: environment
-    tags: tags
-    storageAccountName: storage.outputs.storageAccountName
-    managedIdentityResourceId: identity.outputs.resourceId
-    managedIdentityClientId: identity.outputs.clientId
-    appInsightsConnectionString: observability.outputs.connectionString
-    apiBaseUrl: apiBaseUrl
-    apiScope: apiScope
-  }
-  dependsOn: [
-    rbac
-  ]
-}
-
-output resourceGroupName string = rg.name
-output managedIdentityName string = identity.outputs.name
-output managedIdentityClientId string = identity.outputs.clientId
-output storageAccountName string = storage.outputs.storageAccountName
-output tableEndpoint string = storage.outputs.tableEndpoint
-output blobEndpoint string = storage.outputs.blobEndpoint
-output keyVaultName string = keyvault.outputs.keyVaultName
-output keyVaultUri string = keyvault.outputs.keyVaultUri
-output appInsightsConnectionString string = observability.outputs.connectionString
-output mcpFunctionAppName string = functions.outputs.functionAppName
-output mcpEndpoint string = 'https://${functions.outputs.functionAppHostName}/runtime/webhooks/mcp'
+output apiHostName string = api.outputs.apiHostName
+output functionsHostName string = agents.outputs.hostName
+output tableEndpoint string = dataStorage.properties.primaryEndpoints.table
+output artifactBlobEndpoint string = dataStorage.properties.primaryEndpoints.blob
+output hostStorageAccount string = hostStorage.name
+output keyVaultUri string = keyVault.properties.vaultUri
+output appInsightsResourceId string = appInsights.id
+output foundryResourceId string = foundry.id

@@ -13,7 +13,7 @@ namespace SpeakerPipeline.Storage;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddSpeakerPipelineStorage(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddSpeakerPipelineStorage(this IServiceCollection services, IConfiguration configuration, string environmentName = "Production")
     {
         services.AddOptions<StorageOptions>()
             .Bind(configuration.GetSection(StorageOptions.SectionName))
@@ -22,12 +22,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TableServiceClient>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+            RuntimeSafety.ValidateStorage(environmentName, RuntimeSafety.IsAzureHost, opts.ConnectionString, opts.TableEndpoint);
 
             // Local-dev / Azurite path. Supplied at runtime only; production
             // never sets a connection string — it uses managed identity below.
             if (!string.IsNullOrWhiteSpace(opts.ConnectionString))
             {
-                return new TableServiceClient(opts.ConnectionString);
+                var local = new TableServiceClient(opts.ConnectionString);
+                if (!local.Uri.IsLoopback)
+                    throw new InvalidOperationException("Development storage connection strings must target loopback Azurite.");
+                return local;
             }
 
             if (string.IsNullOrWhiteSpace(opts.TableEndpoint))

@@ -37,8 +37,16 @@ internal sealed class DevAuthenticationHandler(
             [
                 new Claim(ClaimTypes.NameIdentifier, "dev-user"),
                 new Claim(ClaimTypes.Name, "Local Dev"),
+                new Claim(ClaimTypes.Role, AuthExtensions.AccessRole),
             ],
             Scheme.Name);
+
+        // Explicit local operator token for exercising maintenance against Azurite.
+        // RuntimeSafety refuses this handler on Azure hosts.
+        if (token == "maintenance")
+        {
+            identity.AddClaim(new Claim(ClaimTypes.Role, AuthExtensions.MaintenanceRole));
+        }
 
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, Scheme.Name);

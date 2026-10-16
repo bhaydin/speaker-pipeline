@@ -14,15 +14,16 @@ internal static class SeedMapping
     {
         Slug = s.RowKey,
         Name = s.Name,
-        EventType = ParseEnum(s.EventType, EventType.Conference),
-        Category = ParseEnum(s.Category, EventCategory.Monitor),
-        Priority = ParseEnum(s.Priority, Priority.NA),
+        EventType = ParseEnum<EventType>(s.EventType),
+        Category = ParseEnum<EventCategory>(s.Category),
+        Priority = ParseEnum<Priority>(s.Priority),
         FocusFit = ParseLanes(s.FocusFit),
         StatusDetail = s.StatusDetail,
         EventDateStart = s.EventDateStart,
         EventDateEnd = s.EventDateEnd,
         CfpDeadline = s.CfpDeadline,
         CfpUrl = s.CfpUrl,
+        CfpStatus = ParseNullableEnum<CfpStatus>(s.CfpStatus),
         EventUrl = s.EventUrl,
         Location = s.Location,
         Format = ParseNullableEnum<EventFormat>(s.Format),
@@ -32,6 +33,8 @@ internal static class SeedMapping
         SourceSeenOn = ParseNullableEnum<SourceSeenOn>(s.SourceSeenOn),
         LastVerifiedUtc = s.LastVerifiedUtc,
         DoNotResurface = s.DoNotResurface ?? false,
+        FamilyConflictFlag = s.FamilyConflictFlag ?? false,
+        PrepConflictFlag = s.PrepConflictFlag ?? false,
         DiscoveredByAgent = s.DiscoveredByAgent,
         DecidedByAgent = s.DecidedByAgent,
         SchemaVersion = s.SchemaVersion ?? 1,
@@ -46,7 +49,7 @@ internal static class SeedMapping
         TalkTitleUsed = s.TalkTitleUsed,
         AbstractUsed = s.AbstractUsed,
         SubmittedOnUtc = s.SubmittedOnUtc,
-        Status = ParseEnum(s.Status, SubmissionStatus.Submitted),
+        Status = ParseEnum<SubmissionStatus>(s.Status),
         DecisionReceivedUtc = s.DecisionReceivedUtc,
         ContactPerson = s.ContactPerson,
         ContactEmail = s.ContactEmail,
@@ -59,7 +62,7 @@ internal static class SeedMapping
     {
         Slug = s.RowKey,
         CanonicalTitle = s.CanonicalTitle,
-        Lane = ParseEnum(s.Lane, Lane.AgentOps),
+        Lane = ParseEnum<Lane>(s.Lane),
         AbstractShort = s.AbstractShort,
         AbstractLong = s.AbstractLong,
         BioVariant = s.BioVariant,
@@ -73,23 +76,24 @@ internal static class SeedMapping
         SchemaVersion = s.SchemaVersion ?? 1,
     };
 
-    private static T ParseEnum<T>(string? value, T fallback) where T : struct, Enum
-        => Enum.TryParse<T>(value, ignoreCase: true, out var v) ? v : fallback;
+    private static T ParseEnum<T>(string? value) where T : struct, Enum
+        => !string.IsNullOrWhiteSpace(value) && Enum.GetNames<T>().Contains(value, StringComparer.OrdinalIgnoreCase)
+            ? Enum.Parse<T>(value, ignoreCase: true)
+            : throw new ArgumentException($"A named {typeof(T).Name} value is required; unknown or numeric values are rejected.");
 
     private static T? ParseNullableEnum<T>(string? value) where T : struct, Enum
-        => Enum.TryParse<T>(value, ignoreCase: true, out var v) ? v : null;
+        => value is null ? null : ParseEnum<T>(value);
 
     private static IReadOnlyList<Lane> ParseLanes(string? value)
         => string.IsNullOrWhiteSpace(value)
             ? []
             : [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(p => ParseNullableEnum<Lane>(p))
-                .Where(l => l.HasValue)
-                .Select(l => l!.Value)];
+                .Select(ParseEnum<Lane>)];
 }
 
 internal sealed class EventSeed
 {
+    public string PartitionKey { get; set; } = "";
     public string RowKey { get; set; } = "";
     public string Name { get; set; } = "";
     public string? EventType { get; set; }
@@ -101,6 +105,7 @@ internal sealed class EventSeed
     public DateTimeOffset? EventDateEnd { get; set; }
     public DateTimeOffset? CfpDeadline { get; set; }
     public string? CfpUrl { get; set; }
+    public string? CfpStatus { get; set; }
     public string? EventUrl { get; set; }
     public string? Location { get; set; }
     public string? Format { get; set; }
@@ -110,6 +115,8 @@ internal sealed class EventSeed
     public string? SourceSeenOn { get; set; }
     public DateTimeOffset? LastVerifiedUtc { get; set; }
     public bool? DoNotResurface { get; set; }
+    public bool? FamilyConflictFlag { get; set; }
+    public bool? PrepConflictFlag { get; set; }
     public string? DiscoveredByAgent { get; set; }
     public string? DecidedByAgent { get; set; }
     public int? SchemaVersion { get; set; }
@@ -135,6 +142,7 @@ internal sealed class SubmissionSeed
 
 internal sealed class TalkSeed
 {
+    public string PartitionKey { get; set; } = "";
     public string RowKey { get; set; } = "";
     public string CanonicalTitle { get; set; } = "";
     public string? Lane { get; set; }

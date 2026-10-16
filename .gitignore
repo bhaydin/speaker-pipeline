@@ -61,6 +61,9 @@ local.settings.json
 # Claude Code — user-local settings only; shared settings.json is committed
 .claude/settings.local.json
 
+# Local deployment validation state (the deployment plan is documentation).
+.azure/validate-status.json
+
 # Others
 ~$*
 *~

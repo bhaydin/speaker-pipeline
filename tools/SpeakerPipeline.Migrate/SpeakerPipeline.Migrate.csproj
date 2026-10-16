@@ -14,8 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SpeakerPipeline.Migrate.Tests" />
+    <EmbeddedResource Include="..\..\samples\sample-events.json" LogicalName="Samples.events.json" />
+    <EmbeddedResource Include="..\..\samples\sample-submissions.json" LogicalName="Samples.submissions.json" />
+    <EmbeddedResource Include="..\..\samples\sample-talks.json" LogicalName="Samples.talks.json" />
     <ProjectReference Include="..\..\src\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
     <ProjectReference Include="..\..\src\SpeakerPipeline.Client\SpeakerPipeline.Client.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Agents.Scoring\SpeakerPipeline.Agents.Scoring.csproj" />
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Agents.TrackerMaintenance\SpeakerPipeline.Agents.TrackerMaintenance.csproj" />
   </ItemGroup>
 
   <ItemGroup>
