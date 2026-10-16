@@ -19,6 +19,7 @@ public sealed class TelegramOptions
     /// authorization boundary, since anyone can find a public bot.
     /// </summary>
     public long ChatId { get; set; }
+    public long UserId { get; set; }
 
     /// <summary>
     /// Shared secret echoed by Telegram in the <c>X-Telegram-Bot-Api-Secret-Token</c>

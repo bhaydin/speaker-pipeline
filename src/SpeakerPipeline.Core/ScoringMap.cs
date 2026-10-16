@@ -14,7 +14,7 @@ public static class ScoringMap
         Recommendation.Outreach => EventCategory.Outreach,
         Recommendation.Monitor => EventCategory.Monitor,
         Recommendation.Pass => EventCategory.Pass,
-        Recommendation.Skip => EventCategory.Skip,
+        Recommendation.Skip => EventCategory.Pass,
         _ => EventCategory.Monitor,
     };
 }

@@ -14,7 +14,7 @@ namespace SpeakerPipeline.Agents.Discovery;
 public sealed class GoogleProgrammableSearchAdapter(
     HttpClient http,
     IOptions<SearchOptions> options,
-    ILogger<GoogleProgrammableSearchAdapter> logger) : ISearchAdapter
+    ILogger<GoogleProgrammableSearchAdapter> logger, DiscoveryDiagnostics? diagnostics = null) : ISearchAdapter
 {
     private readonly SearchOptions _options = options.Value;
 
@@ -22,6 +22,7 @@ public sealed class GoogleProgrammableSearchAdapter(
     {
         if (!string.Equals(_options.Provider, "GoogleProgrammableSearch", StringComparison.OrdinalIgnoreCase))
         {
+            diagnostics?.Add("search", "unsupported_provider");
             logger.LogWarning(
                 "Search skipped: provider '{Provider}' is not supported by GoogleProgrammableSearchAdapter.",
                 _options.Provider);
@@ -30,6 +31,7 @@ public sealed class GoogleProgrammableSearchAdapter(
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey) || string.IsNullOrWhiteSpace(_options.Cx))
         {
+            diagnostics?.Add("search", "not_configured");
             logger.LogWarning("Search skipped: Google ApiKey/Cx not configured.");
             return [];
         }
@@ -51,16 +53,19 @@ public sealed class GoogleProgrammableSearchAdapter(
             using var resp = await http.GetAsync(url, ct);
             if (!resp.IsSuccessStatusCode)
             {
+                diagnostics?.Add("search", $"http_{(int)resp.StatusCode}");
                 logger.LogWarning("Search query degraded: '{Query}' -> {Status}", query, (int)resp.StatusCode);
                 return [];
             }
 
             var json = await resp.Content.ReadAsStringAsync(ct);
+            using var validated = JsonDocument.Parse(json);
             return ParseResponse(json, query);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Search query failed: '{Query}'", query);
+            diagnostics?.Add("search", ex is JsonException ? "invalid_payload" : "request_failed");
+            logger.LogWarning("Search query failed ({Type}).", ex.GetType().Name);
             return [];
         }
     }

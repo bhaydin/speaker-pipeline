@@ -16,7 +16,9 @@ public interface INotifier
 public sealed class Notifier(
     IEnumerable<INotificationLane> lanes,
     ISpeakerPipelineApiClient api,
-    ILogger<Notifier> logger) : INotifier
+    ILogger<Notifier> logger,
+    DeliveryCoordinator? coordinator = null,
+    NotificationOutbox? outbox = null) : INotifier
 {
     private readonly IReadOnlyList<INotificationLane> _lanes = [.. lanes];
 
@@ -31,11 +33,14 @@ public sealed class Notifier(
 
         var now = DateTimeOffset.UtcNow;
         var period = now.ToString("yyyy-MM");
+        var deliveryKey = notification.DeliveryKey ?? notification.DedupeKey
+            ?? OperationState.Key(notification.Subject + notification.HtmlBody + System.Text.Json.JsonSerializer.Serialize(notification.Groups));
 
+        IReadOnlyList<NotificationLogRecord> alreadySent = [];
         if (!string.IsNullOrWhiteSpace(notification.DedupeKey))
         {
-            var alreadySent = await api.GetNotificationsAsync(period, ct);
-            if (alreadySent.Any(s => string.Equals(s.DedupeKey, notification.DedupeKey, StringComparison.Ordinal)))
+            alreadySent = await api.GetNotificationsAsync(period, ct);
+            if (coordinator is null && alreadySent.Any(s => string.Equals(s.DedupeKey, notification.DedupeKey, StringComparison.Ordinal)))
             {
                 logger.LogInformation("Notify skipped: dedupe key '{Key}' already sent in {Period}.", notification.DedupeKey, period);
                 return;
@@ -45,10 +50,22 @@ public sealed class Notifier(
         var delivered = new List<NotificationChannel>();
         foreach (var lane in enabled)
         {
+            if (alreadySent.Any(s => s.Channel == lane.Channel && s.DedupeKey == notification.DedupeKey)) continue;
             try
             {
-                await lane.SendAsync(notification, ct);
-                delivered.Add(lane.Channel);
+                var allSent = true;
+                foreach (var part in lane.Prepare(notification))
+                {
+                    var result = outbox is not null
+                        ? await outbox.DeliverAsync($"{deliveryKey}:{lane.Channel}:{part.Id}", lane, part, ct)
+                        : coordinator is null
+                        ? await lane.SendPartAsync(part, ct)
+                        : await coordinator.DeliverAsync($"{deliveryKey}:{lane.Channel}:{part.Id}",
+                            () => lane.SendPartAsync(part, ct), ct);
+                    allSent &= result.Status == "Sent";
+                    if (result.Status is "Failed" or "Uncertain") logger.LogError("Notification delivery {Channel} {Part} ended {Status}.", lane.Channel, part.Id, result.Status);
+                }
+                if (allSent) delivered.Add(lane.Channel);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -68,7 +85,8 @@ public sealed class Notifier(
                 await api.LogNotificationAsync(new NotificationLogRecord
                 {
                     Period = period,
-                    NotificationId = Guid.NewGuid().ToString("n"),
+                    NotificationId = coordinator is null ? Guid.NewGuid().ToString("n")
+                        : OperationState.Key($"{deliveryKey}:{channel}"),
                     Channel = channel,
                     Urgency = notification.Urgency,
                     SentUtc = now,

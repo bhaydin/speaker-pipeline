@@ -1,6 +1,6 @@
 # Speaking pipeline — Table Storage schema
 
-This is the persistence contract for the six business tables. Keep it aligned
+This is the persistence contract for the business tables. Keep it aligned
 with `SpeakerPipeline.Core` records and `SpeakerPipeline.Storage/Mapping.cs`.
 The existing estate is the only production environment; historical `dev`
 resource names remain in place.
@@ -26,12 +26,106 @@ Follow the [production runbook](production-rollout.md) and
 | `Topics` | `topic` | Topic ID | `TopicId` |
 | `Blackouts` | `blackout` | Blackout ID | `BlackoutId` |
 | `NotificationLog` | UTC month `yyyy-MM` | Notification ID | `Period`, `NotificationId` |
+| `Opportunities` | Existing event slug | `current`; immutable history/command keys | `Event.Slug` |
+| `Catalog` | Immutable generation, control, jobs, or extraction cache | Repository-defined catalog key | Catalog generation/talk/source IDs |
+| `Operations` | Runs, deliveries, messages, callbacks, incidents | Operation ID | Operational record key |
+
+The three new tables are additive and feature-gated. `Storage:OpportunitiesEnabled`
+defaults to false; legacy `Events` remains authoritative until a verified frozen
+migration and explicit cutover. After cutover, `Events` is an unchanged recovery
+baseline and `/v1/events` projects `Opportunities`; there is no dual-write.
 
 Physical table names are configured by the API and included in maintenance
 snapshots. `PartitionKey` and `RowKey` are required strings on every entity.
 Azure supplies `Timestamp` and `ETag`; ordinary Core records do not expose them.
 Each domain record has an integer `SchemaVersion`, currently defaulting to `1`.
-Optional properties may be absent in existing rows.
+Optional properties may be absent in existing rows. Opportunity API envelopes expose
+the aggregate ETag and scoring-input revision; these are not legacy Events columns.
+
+## Authoritative opportunities
+
+An opportunity current row stores `OpportunityJson`, `Status`, `CfpDeadline`, and
+`ScoringInputRevision`. The JSON contains the complete event facts, separate
+`SystemVerdict` and `UserStatus`, latest full scoring decision, placement provenance,
+suppression, snooze expiry, user notes, and explicit repeat-talk override. Unknown
+columns copied from the original event remain intact during conditional updates.
+Payloads larger than a Table string property are stored in numbered chunks; readers
+also accept the original single-property encoding. Notes, decision history and command
+results are never truncated to fit a property.
+
+`UserStatus` is nullable: new records follow the system verdict until explicitly
+moved. Human or migration-pinned placements survive later model verdicts. Automatic
+Pass/Skip map to NotPursuing without suppression; explicit Drop sets Dropped and
+`DoNotResurface=true`. Snooze is an overlay lasting seven days from the accepted
+action, with replay returning current state without extending expiry.
+
+Legacy Monitor/Outreach/SubmitNow/Submitted/Accepted/Delivered retain placement;
+Pass maps to NotPursuing, Skip to Dropped, Quarantine to Review. Existing suppression
+is copied independently. Imported history has Migration provenance, unknown scores,
+and no invented human action timestamp. New/Drafting/Rejected/Dropped project through
+legacy `/v1/events` as Monitor/SubmitNow/Pass/Skip respectively.
+
+Every command conditionally replaces `current` and inserts immutable history and
+idempotency rows in one same-partition Table transaction. User writes require an exact
+`If-Match` (428 absent, 412 stale) and an idempotency key (428 absent). If an
+`Idempotency-Key` header accompanies the body key, both must match. Scoring writes carry observed ETag and input revision;
+changed facts reject the score with 409, while unrelated user movement can be retried
+without overwriting that movement. Full decisions preserve rubric, catalog, match,
+score-scale and feedback identifiers. Preparation effort is higher for more work.
+Idempotent score replay precedes current-input validation. New actionable scores cannot
+bypass known hard calendar conflicts; SubmitNow also requires an HTTP(S) CFP URL plus
+observed Open status or a future deadline, and
+rejects closed, expired, not-yet-open or revalidation-required CFPs, even with catalog disabled.
+Catalog matches are validated against their named immutable published generation,
+including eligibility, canonical title and current version within that generation.
+Advancing the catalog pointer alone does not reject a valid in-flight decision.
+Completed repeat talks at the same event series require the explicit aggregate override.
+
+Verdict history retains event facts as observed when the score committed. Feedback history
+contains that scored event/decision snapshot, event identity, agreement,
+reason code and optional text. Corrections and retirements append entries referencing
+the prior feedback and retain its original attribution even after later scoring;
+calibration queries omit superseded entries. Compatibility actions require genuine
+explicit reasons for Drop/demotion and never manufacture Other feedback. Repeat-talk overrides
+use a distinct action and do not become calibration examples.
+
+Recorded submission reconciliation reads actual `Submissions` through the API and
+updates `RecordedSubmissionStatus` conditionally. It never fabricates a submission
+from a board/button move. Submission evidence may guide an unpinned card but preserves
+explicit user or migration placement. Recorded acceptance still participates in
+calendar/preparation context; in-flight/accepted submissions are excluded from CFP
+action candidates and deadline alerts even when a card remains pinned elsewhere.
+
+## Additive table migration and snapshots
+
+Provision new tables before setting `Storage:OpportunitiesProvisioned`,
+`Storage:CatalogProvisioned`, or `Storage:OperationsProvisioned`. These gates include
+the physical tables in maintenance snapshots even before their runtime features are
+enabled. Enabled opportunities/catalog also include their table in inventory.
+Authenticated `/health/ready` probes every provisioned table and checks the migration
+readiness marker when opportunity authority is enabled.
+
+Snapshots retain the original six-table version 1 contract and checksums. Version 2
+records the complete configured table inventory, including new tables. Restore accepts
+either version, requires destination support for every included table, and never
+overwrites extra or conflicting destination rows. Old cleanup cannot change the frozen
+Events baseline or opportunity aggregates after authority cutover.
+
+The API-only `migrate-opportunities` CLI command previews by default. It consumes a
+checksummed, target-bound frozen snapshot; apply additionally requires the current
+writer freeze and maintenance authorization. Every source row's exact ETag and content
+are checked before copying. Each current row and imported-history entry are copied
+atomically with snapshot/source checksums; interrupted copies resume from the same
+snapshot without overwriting changed rows. A private snapshot archive and per-record
+history retain recovery evidence. The `__migration/ready` marker is written only after
+the copy finishes; enabled authority refuses requests without it. Resume verifies all
+copied properties and the complete migration history row. Unknown source properties
+that collide with new owned metadata fail preflight for explicit review.
+
+After new writes begin, rollback requires a migration-compatible application package
+or an explicitly reviewed reverse migration; switching back to an old Events writer
+would fork the data. See the production runbook and the actionable-pipeline rollout
+instructions before enabling authority.
 
 ## Events
 

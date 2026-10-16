@@ -50,4 +50,9 @@ public sealed record EventRecord
     public string? DiscoveredByAgent { get; init; }
     public string? DecidedByAgent { get; init; }
     public int SchemaVersion { get; init; } = 1;
+    /// <summary>Read token for a conditional write; absent on new records.</summary>
+    public string? ETag { get; init; }
+    public long ScoringInputRevision { get; init; }
+    public bool RepeatTalkOverride { get; init; }
+    public SubmissionStatus? RecordedSubmissionStatus { get; init; }
 }

@@ -24,15 +24,18 @@ public sealed class TrackerMaintenanceAgent
     private readonly ISpeakerPipelineApiClient _api;
     private readonly ILogger<TrackerMaintenanceAgent> _logger;
     private readonly TrackerMaintenanceOptions _options;
+    private readonly IOpportunityApiClient? _opportunities;
 
     public TrackerMaintenanceAgent(
         ISpeakerPipelineApiClient api,
         IOptions<TrackerMaintenanceOptions> options,
-        ILogger<TrackerMaintenanceAgent> logger)
+        ILogger<TrackerMaintenanceAgent> logger,
+        IOpportunityApiClient? opportunities = null)
     {
         _api = api;
         _options = options.Value;
         _logger = logger;
+        _opportunities = opportunities;
     }
 
     /// <summary>
@@ -52,33 +55,47 @@ public sealed class TrackerMaintenanceAgent
         var considered = selectedEvents.Length;
         var updates = new List<TrackerUpdate>();
         var conflicts = new List<ConflictChange>();
+        var issues = new List<RunIssue>();
 
         var pendingEvents = new List<(EventRecord Event, EventCategory NewCategory)>();
 
         foreach (var ev in selectedEvents)
         {
-            // Terminal categories are left alone — including their conflict flags —
-            // but still stay in the committed-engagement snapshot as-is.
-            if (ev.Category is EventCategory.Delivered or EventCategory.Skip)
+            if (ev.ETag is { } etag && _opportunities is not null)
             {
+                try
+                {
+                    var reconciled = await _opportunities.ReconcileOpportunitySubmissionsAsync(ev.Slug, etag, ct);
+                    var projected = OpportunityMapping.Project(reconciled);
+                    if (projected.ETag != etag) updates.Add(new TrackerUpdate(ev.Slug, ev.Category, projected.Category));
+                    pendingEvents.Add((projected, projected.Category));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Tracker: failed to reconcile recorded submissions for {Slug}", ev.Slug);
+                    issues.Add(new RunIssue("write_failed", "tracker"));
+                }
                 continue;
             }
-
+            // Legacy terminal placement is never overwritten. Authoritative records above
+            // still refresh actual submission evidence independently of their placement.
+            if (ev.Category is EventCategory.Delivered or EventCategory.Skip) continue;
             var submissions = await _api.GetSubmissionsForEventAsync(ev.Slug, ct);
             var derived = DeriveCategory(ev.Category, submissions.Select(s => s.Status));
             var newCategory = derived is { } d && d != ev.Category ? d : ev.Category;
             pendingEvents.Add((ev, newCategory));
         }
 
-        var effectiveCategories = pendingEvents.ToDictionary(p => p.Event.Slug, p => p.NewCategory, StringComparer.OrdinalIgnoreCase);
+        var effectiveCategories = pendingEvents.ToDictionary(p => p.Event.Slug, p => p.Event with { Category = p.NewCategory }, StringComparer.OrdinalIgnoreCase);
         var effectiveEvents = events
-            .Select(ev => effectiveCategories.TryGetValue(ev.Slug, out var category)
-                ? ev with { Category = category }
+            .Select(ev => effectiveCategories.TryGetValue(ev.Slug, out var effective)
+                ? effective
                 : ev)
             .ToArray();
 
         foreach (var (ev, newCategory) in pendingEvents)
         {
+            if (ev.Category is EventCategory.Delivered or EventCategory.Skip) continue;
 
             // Deterministic conflict flags from blackouts + committed engagements (C1).
             var (family, prep) = ConflictEvaluator.Evaluate(
@@ -119,12 +136,13 @@ public sealed class TrackerMaintenanceAgent
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Tracker: failed to update event {Slug}", ev.Slug);
+                issues.Add(new RunIssue("write_failed", "tracker"));
             }
         }
 
         // Daily deadline sweep (B3): flag SubmitNow events whose CFP deadline is
         // imminent so the weekly scoring digest isn't the first alert.
-        var urgent = FindUrgentDeadlines(events, DateTimeOffset.UtcNow, _options.UrgentDeadlineDays);
+        var urgent = FindUrgentDeadlines(effectiveEvents, DateTimeOffset.UtcNow, _options.UrgentDeadlineDays);
 
         runActivity?.SetTag("events.considered", considered);
         runActivity?.SetTag("events.updated", updates.Count);
@@ -132,7 +150,7 @@ public sealed class TrackerMaintenanceAgent
         runActivity?.SetTag("deadlines.urgent", urgent.Count);
         _logger.LogInformation("Tracker-maintenance run complete. {Updated}/{Considered} updated, {Conflicts} conflict changes, {Urgent} urgent deadlines.",
             updates.Count, considered, conflicts.Count, urgent.Count);
-        return new TrackerMaintenanceResult(updates, conflicts, urgent);
+        return new TrackerMaintenanceResult(updates, conflicts, urgent, considered, issues);
     }
 
     /// <summary>
@@ -150,6 +168,7 @@ public sealed class TrackerMaintenanceAgent
             .. events
                 .Where(e => e.Category == EventCategory.SubmitNow
                             && !e.DoNotResurface
+                            && e.RecordedSubmissionStatus is not (SubmissionStatus.Submitted or SubmissionStatus.InReview or SubmissionStatus.Accepted)
                             && e.CfpDeadline is { } d
                             && d >= now
                             && d.UtcDateTime.Date <= cutoffDate)
@@ -217,4 +236,6 @@ public sealed record UrgentDeadline(string EventSlug, string EventName, DateTime
 public sealed record TrackerMaintenanceResult(
     IReadOnlyList<TrackerUpdate> Updates,
     IReadOnlyList<ConflictChange> ConflictChanges,
-    IReadOnlyList<UrgentDeadline> UrgentDeadlines);
+    IReadOnlyList<UrgentDeadline> UrgentDeadlines,
+    int Considered = 0,
+    IReadOnlyList<RunIssue>? Issues = null);

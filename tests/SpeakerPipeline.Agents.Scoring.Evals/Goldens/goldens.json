@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rubricVersion": "v3",
+  "rubricVersion": "v5",
   "cases": [
     {
       "id": "clear-submit-now-hometown-agentops",

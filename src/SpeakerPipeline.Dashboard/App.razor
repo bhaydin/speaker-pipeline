@@ -1,0 +1,269 @@
+@inject DashboardClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Speaker pipeline</PageTitle>
+<div class="shell">
+    <aside class="rail">
+        <a class="brand" href="/dashboard/" aria-label="Speaker pipeline home"><span class="brand-mark">SP</span><span>Speaker<br /><strong>pipeline</strong></span></a>
+        <nav aria-label="Main navigation">
+            <button class="@TabClass("board")" @onclick='() => SetTab("board")'><span>▦</span> Opportunities <small>@opportunities.Count</small></button>
+            <button class="@TabClass("catalog")" @onclick='() => SetTab("catalog")'><span>▤</span> Talk catalog <small>@catalog.Talks.Count</small></button>
+            <button class="@TabClass("health")" @onclick='() => SetTab("health")'><span>◉</span> Pipeline health</button>
+        </nav>
+        <div class="rail-bottom"><span class="eyebrow">YOUR WORKSPACE</span><p>Milwaukee → anywhere</p><small>Chicago as a second departure point</small>@if (session?.Authenticated == true) { <button class="text-button" @onclick="SignOut">Sign out ↗</button> }</div>
+    </aside>
+    <main>
+        <header class="topbar"><span class="eyebrow">SPEAKING / @TabTitle</span><span class="owner"><span class="owner-dot"></span>@(session?.Name ?? "Your private workspace")</span></header>
+        @if (loading)
+        {
+            <div class="empty-state" role="status"><span class="eyebrow">GETTING THINGS READY</span><h1>Opening your pipeline.</h1><p>Loading opportunities and talk history.</p></div>
+        }
+        else if (session is { Authenticated: false })
+        {
+            <div class="empty-state"><span class="eyebrow">YOUR PRIVATE WORKSPACE</span><h1>Your next stage.</h1><p>Sign in with your personal account to open the pipeline.</p><button class="button primary" @onclick="SignIn">Sign in</button></div>
+        }
+        else
+        {
+            <section class="page-heading"><div><span class="eyebrow">@HeadingLabel</span><h1>@Heading</h1><p>@Description</p></div><button class="button secondary" disabled="@busy" @onclick="Refresh">↻ Refresh</button></section>
+            @if (error is not null) { <div class="notice error" role="alert">@error <button @onclick="() => error = null" aria-label="Dismiss error">×</button></div> }
+            @if (notice is not null) { <div class="notice success" role="status">@notice</div> }
+            @if (tab == "board")
+            {
+                <section class="metrics" aria-label="Pipeline summary">
+                    <div><span>Ready for a next step</span><strong>@opportunities.Count(o => o.Status is OpportunityStatus.SubmitNow or OpportunityStatus.Outreach && !o.DoNotResurface && !o.IsSnoozed(now))</strong><small>SubmitNow and Outreach</small></div>
+                    <div><span>Closing within 14 days</span><strong>@opportunities.Count(o => IsClosingSoon(o.Event) && !Inactive.Contains(o.Status))</strong><small>Keep the deadline in view</small></div>
+                    <div><span>New recommendations</span><strong>@opportunities.Count(HasNewVerdict)</strong><small>Your placement stays yours</small></div>
+                </section>
+                <div class="toolbar"><label class="search"><span>⌕</span><input aria-label="Search opportunities" placeholder="Find an event, city, or topic…" @bind="search" @bind:event="oninput" /></label><label class="toggle"><input type="checkbox" @bind="showInactive" @bind:after="EnsureVisibleColumn" /> Show inactive <span>@opportunities.Count(o => Inactive.Contains(o.Status))</span></label><button class="button secondary @(showReview ? "active" : "")" @onclick="ToggleReview">Review inbox · @opportunities.Count(o => o.Status == OpportunityStatus.Review)</button></div>
+                <div class="mobile-columns"><label>Column <select @bind="mobileColumn">@foreach (var column in VisibleColumns) { <option value="@column">@Label(column) (@Filtered(column).Count())</option> }</select></label></div>
+                <section class="board" aria-label="Opportunity board">
+                    @foreach (var column in VisibleColumns)
+                    {
+                        <section class="column @(column == mobileColumn ? "mobile-selected" : "")" @ondragover:preventDefault @ondrop="() => DropOnColumn(column)">
+                            <header><span class="column-dot @column.ToString().ToLowerInvariant()"></span><h2>@Label(column)</h2><span class="count">@Filtered(column).Count()</span></header>
+                            @foreach (var item in Filtered(column))
+                            {
+                                <article class="card" draggable="true" @ondragstart="() => draggedSlug = item.Slug" @key="item.Slug">
+                                    <button class="card-content" @onclick="() => Open(item)">
+                                        <div class="card-kicker"><span>@(item.Event.Format == EventFormat.Virtual ? "VIRTUAL" : item.Event.Location ?? "LOCATION TO CONFIRM")</span>@if (IsClosingSoon(item.Event)) { <span class="deadline-badge">@DaysLabel(item.Event.CfpDeadline)</span> }</div>
+                                        <h3>@item.Event.Name</h3><p class="card-dates">CFP @Deadline(item.Event.CfpDeadline) <span>·</span> @EventDates(item.Event)</p>
+                                        @if (item.LatestDecision is { } decision) { <p class="rationale">@(decision.FitRationale ?? decision.Rationale)</p> }
+                                        else { <p class="rationale muted">@(item.Event.NextAction ?? "Awaiting a grounded recommendation.")</p> }
+                                        @if (item.LatestDecision?.MatchedTalks.FirstOrDefault() is { } match) { <div class="talk-chip">▤ @match.Title</div> }
+                                        @if (HasNewVerdict(item)) { <p class="verdict-badge">Pipeline now says @item.SystemVerdict</p> }
+                                        <footer><span>@(item.PlacementSource switch { PlacementSource.Pipeline => "Pipeline managed", PlacementSource.Migration => "Preserved placement", _ => "Your placement" })</span>@if (item.IsSnoozed(now)) { <span>Snoozed until @LocalDate(item.SnoozedUntilUtc)</span> } else if (item.DoNotResurface) { <span>Suppressed</span> } else { <span>Open ↗</span> }</footer>
+                                    </button>
+                                </article>
+                            }
+                            @if (!Filtered(column).Any()) { <div class="column-empty">Nothing here yet</div> }
+                        </section>
+                    }
+                </section>
+            }
+            else if (tab == "catalog")
+            {
+                <div class="toolbar"><label class="search"><span>⌕</span><input aria-label="Search talks" placeholder="Search your talks and topics…" @bind="search" @bind:event="oninput" /></label><span class="muted">@catalog.Talks.Count talks · @catalog.Deliveries.Count(d => d.Status == "completed" && !d.NeedsReview) confirmed deliveries · @catalog.Deliveries.Count(d => d.NeedsReview) engagements to review</span></div>
+                @if (catalog.Talks.Count == 0) { <div class="empty-state"><h2>Your catalog will appear here.</h2><p>Connect the read-only GitHub App and run the first catalog sync. Existing talks remain available to the pipeline.</p></div> }
+                <section class="catalog-grid">
+                    @foreach (var talk in catalog.Talks.Where(t => Matches(t.Title + " " + string.Join(" ", t.Topics))))
+                    {
+                        <article class="catalog-card"><div class="card-kicker"><span>@talk.Status</span><span>@catalog.Deliveries.Count(d => d.TalkId == talk.TalkId && d.Status == "completed" && !d.NeedsReview) deliveries</span></div><h2>@talk.Title</h2><p>@talk.Abstract</p><div class="tags">@foreach (var topic in talk.Topics) { <span>@topic</span> }</div><p class="muted">@string.Join(" · ", talk.Audiences) @string.Join(" / ", talk.Formats)</p>
+                            @if (talk.NeedsReview) { <p class="verdict-badge">Source details need review</p> }
+                            <button class="text-button" disabled="@(busy || talk.Status.Equals("retired", StringComparison.OrdinalIgnoreCase))" @onclick="() => SetEligibility(talk)">@(talk.Eligible ? "Exclude from recommendations" : "Allow recommendations")</button>
+                            <details><summary>Versions and deliveries</summary>@foreach (var version in catalog.Versions.Where(v => v.TalkId == talk.TalkId).OrderByDescending(v => v.EffectiveDate)) { <p><strong>@version.Title</strong><br /><span class="muted">@LocalDate(version.EffectiveDate) · @(version.Extracted ? "Extracted metadata" : "Source metadata")</span></p> }@foreach (var delivery in catalog.Deliveries.Where(d => d.TalkId == talk.TalkId).OrderByDescending(d => d.Date)) { <p>@delivery.EventName · @DeliveryDate(delivery) · @delivery.Status @if (delivery.NeedsReview) { <span class="muted">(unconfirmed linkage)</span> }</p> }</details>
+                        </article>
+                    }
+                </section>
+                @if (catalog.Issues.Count > 0) { <section class="panel"><h2>Catalog review queue</h2><p class="muted">Uncertain source data is retained for review, never silently merged.</p>@foreach (var issue in catalog.Issues) { <div class="review-row"><strong>@issue.Code</strong><p>@issue.Detail</p><small>@issue.SourcePath</small></div> }</section> }
+                @if (catalog.Talks.Count > 0)
+                {
+                    <section class="panel"><h2>Confirm a legacy talk mapping</h2><p class="muted">Existing references stay intact. Choose a match only when the canonical identity is confirmed.</p>
+                        <div class="form-row"><label>Existing talk <select @bind="legacySlug"><option value="">Choose a talk</option>@foreach (var legacy in legacyTalks) { <option value="@legacy.Slug">@legacy.CanonicalTitle</option> }</select></label><label>Catalog talk <select @bind="canonicalId"><option value="">Choose its canonical talk</option>@foreach (var talk in catalog.Talks) { <option value="@talk.TalkId">@talk.Title</option> }</select></label></div>
+                        <button class="button secondary" disabled="@(busy || string.IsNullOrWhiteSpace(legacySlug) || string.IsNullOrWhiteSpace(canonicalId))" @onclick="SaveAlias">Confirm mapping</button>
+                        @foreach (var alias in catalog.LegacyTalkAliases) { <p class="muted">@(legacyTalks.FirstOrDefault(t => t.Slug == alias.Key)?.CanonicalTitle ?? alias.Key) → @(catalog.Talks.FirstOrDefault(t => t.TalkId == alias.Value)?.Title ?? alias.Value)</p> }
+                    </section>
+                    <section class="panel"><h2>Review an engagement</h2><label>Engagement <select @bind="reviewDeliveryId" @bind:after="LoadDeliveryReview"><option value="">Choose an engagement</option>@foreach (var delivery in ReviewDeliveries) { <option value="@delivery.DeliveryId">@delivery.EventName · @delivery.Status @(delivery.NeedsReview ? "(needs review)" : "")</option> }</select></label>
+                        @if (!string.IsNullOrEmpty(reviewDeliveryId))
+                        {
+                            <div class="form-row"><label>Date <input type="date" @bind="reviewDate" /></label><label>Precision <select @bind="reviewPrecision"><option value="unknown">Unknown</option><option value="year">Year</option><option value="month">Month</option><option value="day">Day</option></select></label></div>
+                            <div class="form-row"><label>Status <select @bind="reviewDeliveryStatus"><option value="planned">Planned</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label><label>City <input @bind="reviewCity" /></label></div>
+                            <label>Event series <input @bind="reviewSeries" /></label><label>Same engagement as <select @bind="reviewAlias"><option value="">Keep as a separate engagement</option>@foreach (var delivery in catalog.Deliveries.Where(d => d.DeliveryId != reviewDeliveryId)) { <option value="@delivery.DeliveryId">@delivery.EventName · @LocalDate(delivery.Date)</option> }</select></label>
+                            <button class="button secondary" disabled="@busy" @onclick="SaveDeliveryReview">Save reviewed facts</button>
+                        }
+                    </section>
+                }
+            }
+            else
+            {
+                <section class="panel"><h2>Recent runs</h2><p class="muted">Funnel and spend details live here and in the weekly health digest. Unknown cost stays unknown.</p>@if (runs.Count == 0) { <p>No operational records yet.</p> }@foreach (var run in runs.OrderByDescending(r => r.StartedUtc)) { <div class="run-row"><div><strong>@run.Agent</strong><small>@CentralTime(run.StartedUtc)</small></div><span class="run-status @run.Status.ToLowerInvariant()">@run.Status</span><span>@run.Considered examined · @run.Changed changed</span><span class="muted">Cost: @(run.EstimatedCost is { } cost ? cost.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-US")) + " estimated" : "unknown")</span>@if (run.Metrics.Count > 0) { <details><summary>Usage and funnel</summary>@foreach (var metric in run.Metrics) { <p>@metric.Key: @metric.Value.ToString("N0")</p> }</details> }@if (run.Issues.Count > 0) { <span class="warning">@string.Join("; ", run.Issues.Select(i => $"{i.Source}: {i.Code} ({i.Count})"))</span> }</div> }</section>
+                <section class="panel"><h2>Delivery preferences</h2><p>Silent overnight: 10 p.m.–7 a.m. Central.</p><p>Weekly health: Monday at 8 a.m. Central.</p><p>Travel: Milwaukee first, Chicago second. Strong fit can justify travel anywhere.</p></section>
+            }
+        }
+    </main>
+</div>
+@if (selected is { } current)
+{
+    <div class="dialog-backdrop" @onclick="Close"><section class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title" @onclick:stopPropagation>
+        <header><span class="eyebrow">OPPORTUNITY DETAILS</span><button class="icon-button" @onclick="Close" aria-label="Close details">×</button></header>
+        <h2 id="detail-title">@current.Event.Name</h2><div class="detail-badges"><span>@Label(current.Status)</span>@if (current.SystemVerdict is { } verdict) { <span>Pipeline: @verdict</span> }@if (current.DoNotResurface) { <span>Do not resurface</span> }@if (current.SnoozedUntilUtc is { } snoozed && current.IsSnoozed(now)) { <span>Snoozed until @CentralTime(snoozed)</span> }@if (current.RecordedSubmissionStatus is { } recorded) { <span>Submission record: @recorded</span> }</div>
+        @if (error is not null) { <div class="notice error" role="alert">@error</div> }
+        @if (notice is not null) { <div class="notice success" role="status">@notice</div> }
+        <dl class="facts"><div><dt>CFP closes</dt><dd>@Deadline(current.Event.CfpDeadline) · @DaysLabel(current.Event.CfpDeadline)</dd></div><div><dt>Event</dt><dd>@EventDates(current.Event)</dd></div><div><dt>Location</dt><dd>@(current.Event.Format == EventFormat.Virtual ? "Virtual" : current.Event.Location ?? "Unknown")</dd></div><div><dt>Links</dt><dd>@if (SafeUrl(current.Event.CfpUrl) is { } cfp) { <a href="@cfp" target="_blank" rel="noopener noreferrer">CFP ↗</a> } @if (SafeUrl(current.Event.EventUrl) is { } url) { <a href="@url" target="_blank" rel="noopener noreferrer">Event ↗</a> }</dd></div></dl>
+        @if (current.LatestDecision is { } latest)
+        {
+            <section class="detail-section"><h3>Why this opportunity</h3><p>@(latest.FitRationale ?? latest.Rationale)</p>@foreach (var match in latest.MatchedTalks) { <div class="matched-talk"><strong>@match.Title</strong><p>@match.Rationale</p></div> }<div class="score-strip"><span>Fit <b>@latest.FitScore/10</b></span><span>Preparation effort <b>@latest.EffortScore/10</b></span><span>Confidence <b>@latest.ConfidenceScore/10</b></span></div><small class="muted">@(latest.RubricVersion is "v4" or "v5" ? "Higher effort means more work." : "Historical effort scale; not converted.") Rubric @latest.RubricVersion.</small><p>@latest.EffortRationale</p><p>@latest.GeographyRationale</p></section>
+        }
+        <section class="detail-section"><h3>Your next step</h3><div class="action-row"><button class="button primary" disabled="@busy" @onclick="() => Act(OpportunityAction.Submitted)">Submitted</button><button class="button secondary" disabled="@busy" @onclick="() => Act(OpportunityAction.Snooze7Days)">Snooze 7d</button><button class="button danger" disabled="@busy" @onclick="() => pendingStatus = OpportunityStatus.Dropped">Drop</button></div>
+            <div class="form-row"><label>Move to <select @bind="pendingStatus"><option value="">Choose a column</option>@foreach (var status in AllColumns) { <option value="@status">@Label(status)</option> }</select></label><button class="button secondary" disabled="@(busy || pendingStatus is null)" @onclick="MoveSelected">Save placement</button></div>
+            <label>Reason for a drop or demotion <select @bind="reason"><option value="">Choose a reason</option>@foreach (var value in Enum.GetValues<FeedbackReason>()) { <option value="@value">@ReasonLabel(value)</option> }</select></label>
+            <label>Optional feedback <textarea rows="2" maxlength="2000" @bind="feedbackText" placeholder="What should the pipeline understand about this opportunity?"></textarea></label>
+            @if (correctingFeedbackId is not null) { <p class="notice">Correcting earlier feedback. Saving replaces its influence; history remains. <button class="text-button" @onclick="() => correctingFeedbackId = null">Cancel</button></p> }
+            <div class="action-row"><button class="button secondary" disabled="@busy" @onclick="() => Feedback(true)">Agree with verdict</button><button class="button secondary" disabled="@(busy || reason is null)" @onclick="() => Feedback(false)">Disagree</button></div>
+            <label class="toggle"><input type="checkbox" @bind="repeatOverride" @bind:after="SaveRepeatOverride" disabled="@busy" /> Allow a previously delivered talk at this event series</label>
+            @if (current.DoNotResurface) { <button class="text-button" disabled="@busy" @onclick="() => Act(OpportunityAction.Restore)">Restore to Monitor and allow resurfacing</button> }
+            else if (current.PlacementSource != PlacementSource.Pipeline) { <button class="text-button" disabled="@busy" @onclick="() => Act(OpportunityAction.FollowPipeline)">Follow pipeline placement again</button> }
+        </section>
+        <section class="detail-section"><h3>Your notes</h3><textarea rows="4" maxlength="8000" @bind="notes" aria-label="Private opportunity notes" placeholder="Contacts, ideas, and anything you want to remember."></textarea><button class="button secondary" disabled="@busy" @onclick="SaveNotes">Save notes</button></section>
+        <section class="detail-section"><h3>Verdict and action history</h3>@if (history.Count == 0) { <p class="muted">No recorded history yet.</p> }@foreach (var entry in history.OrderByDescending(h => h.AtUtc)) { <div class="history-row"><span class="eyebrow">@entry.Kind · @CentralTime(entry.AtUtc)</span><p>@if (entry.PreviousVerdict is not null) { <span>@entry.PreviousVerdict → </span> }@(entry.Verdict?.ToString() ?? entry.Status?.ToString())</p><p>@if (entry.ReasonCode is { } code) { <strong>@ReasonLabel(code). </strong> }@(entry.Reason ?? entry.Decision?.Rationale)</p><DecisionHistory Entry="entry" />@if (ActiveFeedback(entry)) { <div class="action-row"><button class="text-button" disabled="@busy" @onclick="() => CorrectFeedback(entry)">Correct feedback</button><button class="text-button" disabled="@busy" @onclick="() => RetireFeedback(entry)">Retire feedback</button></div> }</div> }</section>
+    </section></div>
+}
+
+@code {
+    private static readonly OpportunityStatus[] AllColumns = [OpportunityStatus.New, OpportunityStatus.Monitor, OpportunityStatus.Outreach, OpportunityStatus.SubmitNow, OpportunityStatus.Drafting, OpportunityStatus.Submitted, OpportunityStatus.Accepted, OpportunityStatus.NotPursuing, OpportunityStatus.Delivered, OpportunityStatus.Rejected, OpportunityStatus.Dropped];
+    private static readonly HashSet<OpportunityStatus> Inactive = [OpportunityStatus.NotPursuing, OpportunityStatus.Delivered, OpportunityStatus.Rejected, OpportunityStatus.Dropped];
+    private static readonly TimeZoneInfo Central = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+    private DashboardSession? session;
+    private IReadOnlyList<OpportunityRecord> opportunities = [];
+    private CatalogSnapshot catalog = new();
+    private IReadOnlyList<TalkRecord> legacyTalks = [];
+    private IReadOnlyList<AgentRunRecord> runs = [];
+    private IReadOnlyList<OpportunityHistoryEntry> history = [];
+    private OpportunityRecord? selected;
+    private bool loading = true, busy, showInactive, showReview, repeatOverride;
+    private string tab = "board", search = "", notes = "", feedbackText = "";
+    private string? error, notice, draggedSlug, correctingFeedbackId;
+    private string legacySlug = "", canonicalId = "", reviewDeliveryId = "", reviewPrecision = "unknown", reviewDeliveryStatus = "planned", reviewCity = "", reviewSeries = "", reviewAlias = "";
+    private DateTime? reviewDate;
+    private OpportunityStatus mobileColumn = OpportunityStatus.SubmitNow;
+    private OpportunityStatus? pendingStatus;
+    private FeedbackReason? reason;
+    private DateTimeOffset now = DateTimeOffset.UtcNow;
+    private int detailRequest;
+    private string TabTitle => tab == "catalog" ? "TALK CATALOG" : tab == "health" ? "HEALTH" : "OPPORTUNITIES";
+    private string HeadingLabel => tab == "catalog" ? "YOUR BODY OF WORK" : tab == "health" ? "THE SYSTEM BEHIND THE SCENES" : "FROM POSSIBILITY TO THE STAGE";
+    private string Heading => tab == "catalog" ? "Built to be shared." : tab == "health" ? "A quieter, healthier pipeline." : "Your next stage.";
+    private string Description => tab == "catalog" ? "One evolving talk. Every version and venue, in context." : tab == "health" ? "See what ran, what changed, and what needs attention." : "Good opportunities, grounded in your talks. Your decisions stay yours.";
+    private IEnumerable<OpportunityStatus> VisibleColumns => showReview ? [OpportunityStatus.Review] : AllColumns.Where(c => showInactive || !Inactive.Contains(c));
+    protected override async Task OnInitializedAsync() => await Refresh();
+    private async Task Refresh()
+    {
+        try
+        {
+            error = null; now = DateTimeOffset.UtcNow;
+            session = await Api.GetSessionAsync();
+            if (!session.Authenticated) return;
+            opportunities = await Api.GetOpportunitiesAsync();
+            catalog = await Api.GetCatalogAsync();
+            legacyTalks = await Api.GetLegacyTalksAsync();
+            runs = await Api.GetRunsAsync();
+        }
+        catch (HttpRequestException) { error = "The pipeline could not be reached. Refresh to try again."; }
+        catch (InvalidOperationException ex) { error = ex.Message; }
+        finally { loading = false; }
+    }
+    private void SetTab(string value) { tab = value; search = ""; notice = null; }
+    private void ToggleReview() { showReview = !showReview; EnsureVisibleColumn(); }
+    private void EnsureVisibleColumn() { if (!VisibleColumns.Contains(mobileColumn)) mobileColumn = VisibleColumns.First(); }
+    private string TabClass(string value) => tab == value ? "nav-item selected" : "nav-item";
+    private bool Matches(string value) => string.IsNullOrWhiteSpace(search) || value.Contains(search, StringComparison.OrdinalIgnoreCase);
+    private IEnumerable<OpportunityRecord> Filtered(OpportunityStatus status) => opportunities.Where(o => o.Status == status && Matches(o.Event.Name + " " + o.Event.Location + " " + string.Join(" ", o.Event.FocusFit))).OrderBy(o => o.Event.CfpDeadline ?? DateTimeOffset.MaxValue).ThenBy(o => o.Event.Name);
+    private static bool HasNewVerdict(OpportunityRecord o) => o.PlacementSource != PlacementSource.Pipeline && o.LatestDecisionId is not null && o.LastSeenDecisionId != o.LatestDecisionId;
+    private bool IsClosingSoon(EventRecord e) => e.CfpDeadline is { } d && d >= now && (d - now).TotalDays <= 14;
+    private string DaysLabel(DateTimeOffset? d) => d is null ? "Deadline unknown" : d < now ? "Closed" : $"{Math.Max(0, (TimeZoneInfo.ConvertTime(d.Value, Central).Date - TimeZoneInfo.ConvertTime(now, Central).Date).Days)}d left";
+    private static string LocalDate(DateTimeOffset? d) => d is null ? "Date unknown" : d.Value.ToString("MMM d, yyyy");
+    private static string Deadline(DateTimeOffset? d) => d is null ? "not announced" : TimeZoneInfo.ConvertTime(d.Value, Central).ToString("MMM d, yyyy");
+    private static string CentralTime(DateTimeOffset d) => TimeZoneInfo.ConvertTime(d, Central).ToString("MMM d, h:mm tt") + " Central";
+    private static string DeliveryDate(CatalogDelivery d) => d.DatePrecision switch { "year" => d.Date?.ToString("yyyy") ?? "Year unknown", "month" => d.Date?.ToString("MMM yyyy") ?? "Month unknown", "day" => LocalDate(d.Date), _ => "Date unconfirmed" };
+    private static string EventDates(EventRecord e) => e.EventDateStart is null ? "Event date unknown" : LocalDate(e.EventDateStart) + (e.EventDateEnd is { } end && end.Date != e.EventDateStart.Value.Date ? " – " + LocalDate(end) : "");
+    private static string Label(OpportunityStatus status) => status switch { OpportunityStatus.NotPursuing => "Not pursuing", OpportunityStatus.SubmitNow => "SubmitNow", OpportunityStatus.Review => "Review inbox", _ => status.ToString() };
+    private static string ReasonLabel(FeedbackReason value) => value switch { FeedbackReason.WrongAudience => "Wrong audience", FeedbackReason.TooFar => "Too far", FeedbackReason.BadTiming => "Bad timing", FeedbackReason.AlreadySpokeThere => "Already spoke there", FeedbackReason.NotMyTopic => "Not my topic", _ => "Other" };
+    private static string? SafeUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http" ? uri.AbsoluteUri : null;
+    private async Task Open(OpportunityRecord item)
+    {
+        var request = ++detailRequest;
+        selected = item; notes = item.UserNotes ?? ""; repeatOverride = item.RepeatTalkOverride;
+        pendingStatus = null; reason = null; feedbackText = ""; history = []; correctingFeedbackId = null; notice = null; error = null;
+        try { var loaded = await Api.GetHistoryAsync(item.Slug); if (request == detailRequest) history = loaded; }
+        catch (HttpRequestException) { if (request == detailRequest) error = "History could not be loaded. The current opportunity is still available."; }
+    }
+    private void Close() { if (!busy) { selected = null; detailRequest++; } }
+    private async Task Act(OpportunityAction action, OpportunityStatus? status = null, string? note = null, bool? agree = null, bool? allowRepeat = null, string? feedbackId = null)
+    {
+        if (selected is not { } item || busy) return;
+        busy = true; error = null; notice = null;
+        try
+        {
+            var updated = await Api.ActAsync(item, new OpportunityActionRequest { Action = action, IdempotencyKey = Guid.NewGuid().ToString("N"), Status = status, ReasonCode = action is OpportunityAction.Drop or OpportunityAction.SetStatus or OpportunityAction.Feedback ? reason : null, Note = note ?? feedbackText, Agree = agree, DecisionId = action == OpportunityAction.RetireFeedback || correctingFeedbackId is not null && action == OpportunityAction.Feedback ? null : item.LatestDecisionId, RepeatTalkOverride = allowRepeat, FeedbackId = feedbackId, SupersedesFeedbackId = action == OpportunityAction.Feedback ? correctingFeedbackId : null });
+            opportunities = opportunities.Select(o => o.Slug == updated.Slug ? updated : o).ToArray();
+            selected = updated; repeatOverride = updated.RepeatTalkOverride;
+            history = await Api.GetHistoryAsync(updated.Slug); notice = "Saved. Telegram and your dashboard use the same state."; pendingStatus = null; correctingFeedbackId = null; reason = null; feedbackText = "";
+        }
+        catch (DashboardConflictException ex) { error = ex.Message; await RefreshSelected(item.Slug); }
+        catch (HttpRequestException) { error = "The result could not be confirmed. Refresh before trying this action again."; }
+        catch (InvalidOperationException ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+    private async Task RefreshSelected(string slug)
+    {
+        try
+        {
+            var latest = await Api.GetOpportunityAsync(slug);
+            if (latest is not null)
+            {
+                selected = latest; repeatOverride = latest.RepeatTalkOverride; pendingStatus = null;
+                opportunities = opportunities.Select(o => o.Slug == slug ? latest : o).ToArray();
+                history = await Api.GetHistoryAsync(slug);
+            }
+        }
+        catch (HttpRequestException) { error = "The latest state could not be loaded. Close the details and refresh before trying again."; }
+    }
+    private Task MoveSelected() => pendingStatus == OpportunityStatus.Dropped ? Act(OpportunityAction.Drop) : Act(OpportunityAction.SetStatus, pendingStatus);
+    private Task SaveNotes() => Act(OpportunityAction.SaveNotes, note: notes);
+    private Task Feedback(bool agree) => Act(OpportunityAction.Feedback, agree: agree);
+    private Task SaveRepeatOverride() => Act(OpportunityAction.SetRepeatTalkOverride, allowRepeat: repeatOverride, note: "Explicit repeat-talk preference");
+    private void CorrectFeedback(OpportunityHistoryEntry entry) { correctingFeedbackId = entry.Id; reason = entry.ReasonCode; feedbackText = entry.Reason ?? ""; }
+    private bool ActiveFeedback(OpportunityHistoryEntry entry) => entry.Kind == "Feedback" && entry.Actor is not ("pipeline" or "migration") && !history.Any(h => h.SupersedesFeedbackId == entry.Id);
+    private Task RetireFeedback(OpportunityHistoryEntry entry) => Act(OpportunityAction.RetireFeedback, feedbackId: entry.Id, note: "Retired by owner");
+    private Task SaveAlias() => ReviewCatalog(new CatalogReviewRequest { ExpectedGenerationId = catalog.GenerationId, LegacyTalkSlug = legacySlug, TalkId = canonicalId });
+    private Task SetEligibility(CatalogTalk talk) => ReviewCatalog(new CatalogReviewRequest { ExpectedGenerationId = catalog.GenerationId, TalkId = talk.TalkId, Eligible = !talk.Eligible });
+    private IReadOnlyList<CatalogDelivery> ReviewDeliveries => catalog.SourceDeliveries.Count > 0 ? catalog.SourceDeliveries : catalog.Deliveries;
+    private void LoadDeliveryReview()
+    {
+        if (ReviewDeliveries.FirstOrDefault(d => d.DeliveryId == reviewDeliveryId) is not { } source) return;
+        var d = catalog.Deliveries.FirstOrDefault(d => d.DeliveryId == reviewDeliveryId) ?? source;
+        reviewDate = d.Date?.UtcDateTime.Date; reviewPrecision = d.DatePrecision; reviewDeliveryStatus = d.Status;
+        reviewCity = d.City ?? ""; reviewSeries = d.EventSeriesId ?? ""; reviewAlias = catalog.DeliveryCorrections.FirstOrDefault(c => c.DeliveryId == reviewDeliveryId)?.AliasOfDeliveryId ?? "";
+    }
+    private Task SaveDeliveryReview() => ReviewCatalog(new CatalogReviewRequest { ExpectedGenerationId = catalog.GenerationId,
+        Delivery = new(reviewDeliveryId, string.IsNullOrEmpty(reviewAlias) ? null : reviewAlias,
+            reviewDate is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Utc)) : null,
+            reviewPrecision, reviewSeries, reviewDeliveryStatus, reviewCity) });
+    private async Task ReviewCatalog(CatalogReviewRequest review)
+    {
+        busy = true; error = null; notice = null;
+        try { catalog = await Api.ReviewCatalogAsync(review); notice = "Catalog review saved."; }
+        catch (DashboardConflictException ex) { catalog = await Api.GetCatalogAsync(); error = ex.Message; }
+        catch (HttpRequestException) { error = "The catalog review could not be saved. Refresh and review the latest facts."; }
+        finally { busy = false; }
+    }
+    private async Task DropOnColumn(OpportunityStatus column)
+    {
+        if (draggedSlug is null || busy) return;
+        var item = opportunities.FirstOrDefault(o => o.Slug == draggedSlug); draggedSlug = null;
+        if (item is null || item.Status == column) return;
+        await Open(item); pendingStatus = column;
+        if (column is not (OpportunityStatus.Dropped or OpportunityStatus.NotPursuing or OpportunityStatus.Monitor)) await MoveSelected();
+    }
+    private async Task SignOut() { try { await Api.SignOutAsync(); Navigation.NavigateTo("/dashboard/", true); } catch (HttpRequestException) { error = "Sign out could not be confirmed. Please try again."; } }
+    private void SignIn() => Navigation.NavigateTo(session?.LoginUrl ?? "/dashboard/login", true);
+}

@@ -9,7 +9,7 @@
 
   "ConfsTech__Enabled": "true",
   "ConfsTech__IncludeNextYear": "true",
-  "ConfsTech__UsOnly": "true",
+  "ConfsTech__UsOnly": "false",
   "ConfsTech__Topics__0": "dotnet",
   "ConfsTech__Topics__1": "ai",
   "ConfsTech__Topics__2": "data",

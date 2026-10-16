@@ -20,5 +20,7 @@ public sealed record TalkRecord
     public int DeliveryCount { get; init; }
     public int? ReusabilityScore { get; init; }
     public bool Retired { get; init; }
+    /// <summary>Optional reviewed mapping; legacy Slug remains the submission identity.</summary>
+    public string? CatalogTalkId { get; init; }
     public int SchemaVersion { get; init; } = 1;
 }

@@ -28,12 +28,13 @@ internal static class ManifestBuilder
 {
     public static void ValidateSnapshot(SnapshotFile export, Uri api)
     {
-        if (export.ApiOrigin != api.AbsoluteUri || export.Snapshot.Version != 1 ||
+        if (export.ApiOrigin != api.AbsoluteUri || export.Snapshot.Version is not (1 or 2) ||
             export.Snapshot.Checksum != MaintenanceIntegrity.SnapshotChecksum(export.Snapshot))
             throw new ArgumentException("Snapshot target, version, or checksum does not match.");
-        if (!MaintenanceIntegrity.TableNames.Order().SequenceEqual(export.Snapshot.Tables.Keys.Order()) ||
-            !MaintenanceIntegrity.TableNames.Order().SequenceEqual(export.Snapshot.Target.TableNames.Keys.Order()))
-            throw new ArgumentException("Snapshot must include all six tables and their physical names.");
+        if (MaintenanceIntegrity.TableNames.Any(n => !export.Snapshot.Tables.ContainsKey(n)) ||
+            !export.Snapshot.Tables.Keys.Order().SequenceEqual(export.Snapshot.Target.TableNames.Keys.Order()) ||
+            (export.Snapshot.Version == 1 && export.Snapshot.Tables.Count != MaintenanceIntegrity.TableNames.Length))
+            throw new ArgumentException("Snapshot must include its complete versioned table inventory and physical names.");
         foreach (var table in export.Snapshot.Tables)
             if (table.Value.Select(r => (r.PartitionKey, r.RowKey)).Distinct().Count() != table.Value.Count)
                 throw new ArgumentException("Snapshot contains duplicate entity keys.");
@@ -42,6 +43,8 @@ internal static class ManifestBuilder
     public static CleanupManifest Build(SnapshotFile export, Uri api)
     {
         ValidateSnapshot(export, api);
+        if (export.Snapshot.Tables.TryGetValue("Opportunities", out var opportunities) && opportunities.Count > 0)
+            throw new ArgumentException("Legacy sample cleanup is disabled after opportunity migration.");
         var snapshot = export.Snapshot;
         var changes = new List<MaintenanceChange>();
         var review = new List<ReviewItem>();
@@ -127,6 +130,8 @@ internal static class SampleCatalog
         foreach (var prop in record.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
         {
             if (keyProperties.Contains(prop.Name)) continue;
+            // API concurrency/projection metadata is not a column in legacy Events.
+            if (record is EventRecord && prop.Name is nameof(EventRecord.ETag) or nameof(EventRecord.ScoringInputRevision) or nameof(EventRecord.RepeatTalkOverride) or nameof(EventRecord.RecordedSubmissionStatus)) continue;
             var value = prop.GetValue(record);
             if (value is null) continue;
             properties.Add(prop.Name, value switch

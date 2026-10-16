@@ -110,6 +110,8 @@ public class EndpointsTests : IClassFixture<EndpointsTests.Fixture>
         {
             Slug = slug,
             Name = "Driftless AI Days 2027",
+            CfpUrl = "https://example.invalid/cfp",
+            CfpStatus = CfpStatus.Open,
             EventType = EventType.Conference,
             Category = EventCategory.Monitor,
             Priority = Priority.Medium,
@@ -134,6 +136,24 @@ public class EndpointsTests : IClassFixture<EndpointsTests.Fixture>
         Assert.Equal(EventCategory.SubmitNow, updated!.Category);
         Assert.Equal(Priority.High, updated.Priority);
         Assert.Equal("scoring-agent-test", updated.DecidedByAgent);
+    }
+
+    [Fact]
+    public async Task Legacy_scoring_rejects_unsafe_actionables_and_never_invents_suppression()
+    {
+        var slug = "legacy-guard";
+        var original = new EventRecord { Slug = slug, Name = "Legacy guard", EventType = EventType.Conference, Category = EventCategory.Monitor, Priority = Priority.Low };
+        await _fx.Factory.Events.UpsertAsync(original);
+        var decision = new ScoringDecision { EventSlug = slug, Recommendation = Recommendation.SubmitNow, Rationale = "Test rationale", FitScore = 8, EffortScore = 3, ConfidenceScore = 8 };
+        Assert.Equal(HttpStatusCode.BadRequest, (await _fx.Client.PostAsJsonAsync("/v1/scoring/decisions", decision, Json)).StatusCode);
+        await _fx.Factory.Events.UpsertAsync(original with { CfpUrl = "https://example.invalid/cfp" });
+        Assert.Equal(HttpStatusCode.BadRequest, (await _fx.Client.PostAsJsonAsync("/v1/scoring/decisions", decision, Json)).StatusCode); // URL alone is not open-CFP evidence
+        await _fx.Factory.Events.UpsertAsync(original with { CfpUrl = "https://example.invalid/cfp", FamilyConflictFlag = true });
+        Assert.Equal(HttpStatusCode.BadRequest, (await _fx.Client.PostAsJsonAsync("/v1/scoring/decisions", decision with { Recommendation = Recommendation.Outreach }, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _fx.Client.PostAsJsonAsync("/v1/scoring/decisions", decision with { Recommendation = Recommendation.Skip }, Json)).StatusCode);
+        var updated = (await _fx.Factory.Events.GetAsync(slug))!;
+        Assert.False(updated.DoNotResurface);
+        Assert.Equal(EventCategory.Pass, updated.Category);
     }
 
     [Fact]

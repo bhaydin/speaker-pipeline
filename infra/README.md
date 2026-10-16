@@ -12,7 +12,7 @@ test fixtures.
 | Compute/data resource group | `rg-speakerpipeline-dev` | Existing deployment target |
 | API / B1 plan | `app-speakerpipeline-api-dev` / `asp-speakerpipeline-dev` | Reconciled in place |
 | Agents / Flex plan | `func-speakerpipeline-dev` / `ASP-rgspeakerpipelinedev-902b` | Reconciled in place |
-| Pipeline data | `stspeakerpipelinedev` | Existing; six tables and private `artifacts` container |
+| Pipeline data | `stspeakerpipelinedev` | Existing; nine tables after actionable-pipeline provisioning, private `artifacts` container |
 | Functions host/deployment storage | `stspeakerpipelinefuncdev` | Existing; never a cleanup target |
 | Shared services group | `rg-speakerpipeline-shared` | Existing |
 | API / agents managed identities | `mi-api-dev` / `mi-functions-dev` | Existing; separate access boundaries |

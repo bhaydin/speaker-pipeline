@@ -161,7 +161,7 @@ public class ScoringAgentEvalRunner
         new() { Slug = "foundry-for-enterprise", CanonicalTitle = "Azure AI Foundry for Enterprise", Lane = Lane.PracticalEnterpriseAI, ReusabilityScore = 4 },
     ];
 
-    private sealed class EvalApiClient : ISpeakerPipelineApiClient
+    internal sealed class EvalApiClient : ISpeakerPipelineApiClient
     {
         public Task<IReadOnlyList<EventRecord>> GetEventsAsync(IReadOnlyList<EventCategory>? categories = null, TimeSpan? deadlineWindow = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<EventRecord>>([]);
         public Task<EventRecord?> GetEventAsync(string slug, CancellationToken ct = default) => Task.FromResult<EventRecord?>(null);

@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// Ensures all six tables exist on the existing production data account.
+// Ensures all nine tables exist on the existing production data account.
 // Declaring an existing table does not seed, delete or replace its entities.
 //
 // Deploy target: the production resource group (historical dev suffix).
@@ -19,6 +19,9 @@ param tableNames array = [
   'Topics'
   'Blackouts'
   'NotificationLog'
+  'Opportunities'
+  'Catalog'
+  'Operations'
 ]
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {

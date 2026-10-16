@@ -1,0 +1,26 @@
+@if (Entry.Decision is { } decision)
+{
+    <details>
+        <summary>Decision details</summary>
+        @if (!string.IsNullOrWhiteSpace(decision.ChangeReason)) { <p><strong>What changed:</strong> @decision.ChangeReason</p> }
+        <p>@(decision.FitRationale ?? decision.Rationale)</p>
+        @foreach (var match in decision.MatchedTalks)
+        {
+            <p><strong>@match.Title</strong><br />@match.Rationale<br /><small class="muted">Talk @match.TalkId · version @match.VersionId</small></p>
+        }
+        <div class="score-strip"><span>Fit <b>@decision.FitScore/10</b></span><span>Preparation effort <b>@decision.EffortScore/10</b></span><span>Confidence <b>@decision.ConfidenceScore/10</b></span></div>
+        <small class="muted">@(decision.RubricVersion is "v4" or "v5" ? "Higher effort means more work." : "Historical effort scale; not converted.") Rubric @decision.RubricVersion.</small>
+        @if (!string.IsNullOrWhiteSpace(decision.EffortRationale)) { <p>@decision.EffortRationale</p> }
+        @if (!string.IsNullOrWhiteSpace(decision.GeographyRationale)) { <p>@decision.GeographyRationale</p> }
+        @if (Entry.EventSnapshot is { } facts)
+        {
+            <p class="muted">Facts at this decision: @(facts.Format == EventFormat.Virtual ? "Virtual" : facts.Location ?? "location unknown") · CFP @(facts.CfpDeadline?.ToString("MMM d, yyyy") ?? "deadline unknown") · @facts.CfpStatus</p>
+        }
+        @if (decision.FeedbackIds.Count > 0) { <p class="muted">Considered @decision.FeedbackIds.Count explicit feedback examples.</p> }
+        @if (decision.ModelName is not null) { <p class="muted">Model: @decision.ModelName @decision.ModelRevision</p> }
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired] public required OpportunityHistoryEntry Entry { get; set; }
+}

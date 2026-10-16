@@ -26,7 +26,7 @@ flowchart LR
     subgraph Azure["Single production estate"]
         Agents["Azure Functions<br/>Discovery · Scoring · Tracker"]
         API["App Service<br/>SpeakerPipeline.Api"]
-        Tables[("Table Storage<br/>Six business tables")]
+        Tables[("Table Storage<br/>Nine tables after feature provisioning")]
         Foundry["Azure AI Foundry models"]
         Insights["Application Insights"]
         Agents -->|Entra / managed identity| API
@@ -36,12 +36,16 @@ flowchart LR
         API -. telemetry .-> Insights
     end
     Telegram[Telegram] <--> Agents
+    Dashboard["Owner Blazor dashboard"] -->|Same-origin API| API
+    GitHub["Read-only GitHub talk catalog"] --> Agents
     Agents --> Email["Email notifications"]
     Operator["Operator migration CLI"] -->|API maintenance role| API
 ```
 
 Every consumer reaches data through the API. The API owns `Events`, `Submissions`,
-`Talks`, `Topics`, `Blackouts`, and `NotificationLog`. Agents have API access and
+`Talks`, `Topics`, `Blackouts`, `NotificationLog`, `Opportunities`, `Catalog`, and
+`Operations`. Feature-gated migration makes Opportunities authoritative and
+retains Events as a frozen recovery baseline. Agents have API access and
 model access; they do not need direct pipeline Table Storage access.
 
 The agent projects use the Microsoft Agent Framework ecosystem and
@@ -84,11 +88,16 @@ seed the production system from `samples/`.
 - Blocking solution tests/evals and manual production releases of CI artifacts.
 - Role-protected snapshot export, conservative cleanup, resumable journals,
   selective rollback, and local full-backup restore rehearsal.
+- Feature-gated shared opportunity actions, owner dashboard, read-only talk
+  catalog, calibrated scoring and explicit feedback. These require the
+  [actionable pipeline activation procedure](docs/actionable-pipeline-rollout.md).
 
 ## Documentation
 
 - [Architecture overview](docs/architecture-overview.md)
 - [Authoritative Table Storage schema](docs/architecture-table-storage.md)
+- [Actionable pipeline activation](docs/actionable-pipeline-rollout.md),
+  [notifications](docs/actionable-notifications.md), and [talk catalog](docs/talk-catalog.md)
 - [Production rollout](docs/production-rollout.md) and [infrastructure](infra/README.md)
 - [Migration CLI](tools/SpeakerPipeline.Migrate/README.md) and [fictional samples](samples/README.md)
 - [Architecture decisions](docs/adr/), [contributing](CONTRIBUTING.md), and [security](SECURITY.md)

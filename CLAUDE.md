@@ -28,8 +28,11 @@ planned capabilities as active production behavior.
 - `SpeakerPipeline.Storage` is internal to the API and its tests. Functions,
   MCP, migration tools, and future OpenClaw clients must never reference it or
   access pipeline tables directly.
-- The App Service API uses managed identity for six business tables: `Events`,
-  `Submissions`, `Talks`, `Topics`, `Blackouts`, and `NotificationLog`. The
+- The App Service API uses managed identity for legacy tables `Events`,
+  `Submissions`, `Talks`, `Topics`, `Blackouts`, and `NotificationLog`, plus the
+  feature-gated `Opportunities`, `Catalog`, and `Operations` tables. After the
+  verified opportunity cutover, `Events` is a frozen recovery baseline and all
+  current event reads/writes use the opportunity aggregate through the API. The
   [schema](docs/architecture-table-storage.md) is authoritative; read it before
   changing persistence, and keep it aligned with Core models and Storage mapping.
 - Deployed hosts use `Production`. API JWT validation and `Pipeline.Access`

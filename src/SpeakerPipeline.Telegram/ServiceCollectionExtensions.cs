@@ -16,7 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddOptions<TelegramOptions>()
             .Bind(configuration.GetSection(TelegramOptions.SectionName));
 
-        services.AddHttpClient<TelegramClient>(c => c.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient<TelegramClient>(c => c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllLoggers();
 
         // Outbound: expose the lane through the shared abstraction so the Notifier
         // fans out to it without knowing Telegram exists.
@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
 
         // Inbound: the webhook Function resolves the router + client directly.
         services.AddTransient<TelegramCommandRouter>();
+        services.AddTransient<TelegramInteractions>();
 
         return services;
     }

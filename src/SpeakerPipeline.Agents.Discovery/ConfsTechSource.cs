@@ -21,7 +21,7 @@ public sealed class ConfsTechSource(
     HttpClient http,
     IOptions<ConfsTechOptions> options,
     TimeProvider timeProvider,
-    ILogger<ConfsTechSource> logger) : ISourceAdapter
+    ILogger<ConfsTechSource> logger, DiscoveryDiagnostics? diagnostics = null) : ISourceAdapter
 {
     private readonly ConfsTechOptions _options = options.Value;
 
@@ -61,6 +61,8 @@ public sealed class ConfsTechSource(
                     using var resp = await http.GetAsync(url, ct);
                     if (!resp.IsSuccessStatusCode)
                     {
+                        if (resp.StatusCode != System.Net.HttpStatusCode.NotFound || year <= now.Year)
+                            diagnostics?.Add("confs.tech", $"http_{(int)resp.StatusCode}");
                         // A missing topic/year file (404) is normal — not every topic exists for every year.
                         logger.LogInformation("confs.tech: {Url} -> {Status} (skipped)", url, (int)resp.StatusCode);
                         continue;
@@ -75,12 +77,14 @@ public sealed class ConfsTechSource(
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    diagnostics?.Add("confs.tech", "fetch_or_parse_failed");
                     logger.LogWarning(ex, "confs.tech: failed to fetch/parse {Url}", url);
                 }
             }
         }
 
         var candidates = BuildCandidates(entries, now, _options);
+        if (entries.Count == 0) diagnostics?.Add("confs.tech", "empty_source");
         logger.LogInformation("confs.tech: {Entries} entries -> {Candidates} candidates", entries.Count, candidates.Count);
         return candidates;
     }

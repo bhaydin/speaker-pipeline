@@ -1,13 +1,14 @@
 using SpeakerPipeline.Agents.TrackerMaintenance;
 using SpeakerPipeline.Notifications;
+using SpeakerPipeline.Core;
 
 namespace SpeakerPipeline.Hosting.Functions.Functions;
 
 /// <summary>
 /// Bridges a tracker-maintenance run's updates to the Notifier — maps the agent's
 /// <see cref="TrackerUpdate"/>s to generic digest items so the Notifications
-/// project stays decoupled from the tracker agent, and sends a run summary
-/// (including a "no changes" heartbeat).
+/// project stays decoupled from the tracker agent. The shared run wrapper calls
+/// this only for meaningful changes and supplies the latest event display facts.
 /// </summary>
 internal static class TrackerNotification
 {
@@ -15,17 +16,25 @@ internal static class TrackerNotification
         INotifier notifier,
         IReadOnlyList<TrackerUpdate> updates,
         IReadOnlyList<ConflictChange> conflicts,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyDictionary<string, EventRecord>? events = null,
+        string? deliveryKey = null,
+        IReadOnlyDictionary<string, OpportunityRecord>? opportunities = null)
     {
-        var items = updates
-            .Select(u => new DigestItem(u.EventSlug, IsNew: false, $"{u.From} → {u.To}"))
-            .ToArray();
-
-        var conflictItems = conflicts
-            .Select(c => new DigestItem(c.EventSlug, IsNew: false, DescribeConflict(c)))
-            .ToArray();
-
-        await notifier.NotifyAsync(TrackerDigest.Build(items, conflictItems), ct);
+        NotificationItem Item(string slug, string detail)
+        {
+            var ev = events?.GetValueOrDefault(slug);
+            var opportunity = opportunities?.GetValueOrDefault(slug);
+            return new NotificationItem { Id = slug, EventSlug = slug, Name = ev?.Name ?? slug,
+                Url = ev is null ? null : NotificationLinks.ForEvent(ev), Detail = detail,
+                ExpectedETag = opportunity?.ETag, DecisionId = opportunity?.LatestDecisionId,
+                Actions = ev?.Category is not (EventCategory.Submitted or EventCategory.Accepted or EventCategory.Delivered or EventCategory.Skip or EventCategory.Pass) };
+        }
+        var groups = new List<NotificationGroup>();
+        if (updates.Count > 0) groups.Add(new("Tracker changes", updates.Select(u => Item(u.EventSlug, $"{u.From} → {u.To}")).ToArray()));
+        if (conflicts.Count > 0) groups.Add(new("Schedule changes", conflicts.Select(c => Item(c.EventSlug, DescribeConflict(c))).ToArray()));
+        if (groups.Count == 0) return;
+        await notifier.NotifyAsync(new Notification { Subject = "Speaker pipeline — tracker", HtmlBody = "", Groups = groups, DeliveryKey = deliveryKey }, ct);
     }
 
     private static string DescribeConflict(ConflictChange c)

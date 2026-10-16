@@ -20,7 +20,7 @@ Every tool is a thin adapter over `ISpeakerPipelineApiClient` (from
 | `list_topics(stage?)` | Read the funnel, optionally by stage |
 | `list_pipeline(filter?)` | List tracked events, optionally by category |
 | `get_upcoming_deadlines(days)` | Events with a CFP deadline inside N days |
-| `update_pipeline(entity_id, action, note?)` | Apply `skip` / `monitor` / `intend` / `confirmed` |
+| `update_pipeline(entity_id, action, note?, reasonCode?)` | Apply `skip` / `monitor` / `intend` / `confirmed`; skip and demotion require an explicit user reason |
 | `add_blackout(start, end, reason)` | Add an unavailable date range |
 
 `update_pipeline` accepts only the closed action set — there is no ambiguous

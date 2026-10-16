@@ -9,28 +9,20 @@ namespace SpeakerPipeline.Hosting.Functions.Functions;
 /// <summary>
 /// Daily light scan at 05:00 UTC — ahead of tracker-maintenance (05:30) and the
 /// Monday scoring run (06:00), so newly discovered events are reconciled and
-/// scored in the same cascade. Sends a run summary unless the run changed nothing
-/// and Notifications:SuppressEmptyScheduledRuns is set.
+/// scored in the same cascade. Healthy runs with no changes are silent;
+/// incidents and recovery are reported independently.
 /// </summary>
 public sealed class DiscoveryTimerTrigger(
-    DiscoveryAgent agent,
-    INotifier notifier,
-    IOptions<NotificationOptions> notificationOptions,
+    PipelineRuns runs,
     ILogger<DiscoveryTimerTrigger> logger)
 {
     [Function("DiscoveryTimerTrigger")]
     public async Task Run([TimerTrigger("0 0 5 * * *")] TimerInfo timer, CancellationToken ct)
     {
         logger.LogInformation("Discovery run starting (scheduled). Next: {Next}", timer.ScheduleStatus?.Next);
-        var report = await agent.RunAsync(ct);
+        var report = await runs.DiscoveryAsync(ct);
         logger.LogInformation("Discovery run complete. Changed: {Changed}, quarantined: {Quarantined}",
             report.Changed.Count, report.Quarantined.Count);
 
-        // A quarantined candidate is a review item, so it counts toward "worth notifying".
-        var actionable = report.Changed.Count + report.Quarantined.Count;
-        if (NotificationPolicy.ShouldNotify(actionable, isScheduled: true, notificationOptions.Value.SuppressEmptyScheduledRuns))
-        {
-            await DiscoveryNotification.SendAsync(notifier, report, ct);
-        }
     }
 }

@@ -44,7 +44,9 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
 
     public async Task<EventRecord> UpsertEventAsync(EventRecord record, CancellationToken ct = default)
     {
-        using var resp = await http.PutAsJsonAsync($"v1/events/{Uri.EscapeDataString(record.Slug)}", record, JsonOpts, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"v1/events/{Uri.EscapeDataString(record.Slug)}") { Content = JsonContent.Create(record, options: JsonOpts) };
+        if (!string.IsNullOrEmpty(record.ETag)) request.Headers.TryAddWithoutValidation("If-Match", record.ETag);
+        using var resp = await http.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<EventRecord>(JsonOpts, ct))!;
     }
@@ -123,7 +125,11 @@ public sealed class SpeakerPipelineApiClient(HttpClient http, ILogger<SpeakerPip
 
     public async Task<EventRecord> ApplyPipelineActionAsync(string slug, PipelineActionRequest request, CancellationToken ct = default)
     {
-        using var resp = await http.PostAsJsonAsync($"v1/pipeline/{Uri.EscapeDataString(slug)}/actions", request, JsonOpts, ct);
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"v1/pipeline/{Uri.EscapeDataString(slug)}/actions") { Content = JsonContent.Create(request, options: JsonOpts) };
+        var existing = await GetEventAsync(slug, ct);
+        if (existing?.ETag is { } token) message.Headers.TryAddWithoutValidation("If-Match", token);
+        message.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("n"));
+        using var resp = await http.SendAsync(message, ct);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<EventRecord>(JsonOpts, ct))!;
     }

@@ -26,8 +26,14 @@ public static class MaintenanceServiceCollectionExtensions
                     ["Blackouts"] = options.BlackoutsTableName, ["NotificationLog"] = options.NotificationLogTableName,
                 },
             };
-            if (target.TableNames.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != MaintenanceIntegrity.TableNames.Length)
-                throw new InvalidOperationException("Maintenance requires six distinct business tables.");
+            if (options.OpportunitiesProvisioned || options.OpportunitiesEnabled)
+                target.TableNames["Opportunities"] = options.OpportunitiesTableName;
+            if (options.CatalogProvisioned || configuration.GetValue<bool>("Catalog:Enabled"))
+                target.TableNames["Catalog"] = options.CatalogTableName;
+            if (options.OperationsProvisioned)
+                target.TableNames["Operations"] = options.OperationsTableName;
+            if (target.TableNames.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != target.TableNames.Count)
+                throw new InvalidOperationException("Maintenance requires distinct business tables.");
             BlobServiceClient blobs;
             if (!string.IsNullOrWhiteSpace(options.ConnectionString)) blobs = new BlobServiceClient(options.ConnectionString);
             else

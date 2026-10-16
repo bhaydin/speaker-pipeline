@@ -57,14 +57,18 @@ test bin directory and (in CI) published as a workflow artifact.
 
 ## Plugging in a real model
 
-When you want to assert against a real model's output:
-
-1. Wire an `IChatClient` for your provider (Foundry / Azure OpenAI / OpenAI)
-   in `ScoringAgentEvalRunner.CreateChatClient()`.
-2. Set whichever environment variables the provider expects.
-3. Run `dotnet test tests/SpeakerPipeline.Agents.Scoring.Evals`.
-4. Inspect `evals-report.json`; expect some keyword misses on first run —
-   tighten the prompt or relax keyword sets as needed.
+The catalog calibration suite uses the real configured Foundry provider only
+when explicitly enabled. Set `SCORING_EVALS_LIVE=1`,
+`ScoringAgent__Endpoint`, `ScoringAgent__ModelName`, and explicit personal-tenant
+`SCORING_EVALS_TENANT_ID`, then run
+`dotnet test tests/SpeakerPipeline.Agents.Scoring.Evals --filter CatalogLiveEvaluation`.
+Authentication uses `AzureCliCredential` restricted to that tenant; do not put secrets in fixtures.
+The suite makes exactly five requests with 16,000-character input and
+4096-completion-token caps per request (including reasoning). It never posts decisions or contacts the
+production tracker. Inspect `catalog-live-evals-report.json` for actual model
+responses and the model/rubric version. It checks direct versus wrong-audience
+and unrelated fit, increasing effort for new work, and international eligibility.
+Ordinary CI skips this billed suite and continues to use deterministic tests.
 
 Keep the heuristic client as the CI default until model output is stable
 enough to be the baseline. **Never** make CI depend on a model call billed

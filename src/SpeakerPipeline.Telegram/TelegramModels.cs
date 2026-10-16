@@ -9,6 +9,7 @@ public sealed record TelegramUpdate
 {
     public long UpdateId { get; init; }
     public TelegramMessage? Message { get; init; }
+    public TelegramCallbackQuery? CallbackQuery { get; init; }
 }
 
 public sealed record TelegramMessage
@@ -22,6 +23,7 @@ public sealed record TelegramMessage
 public sealed record TelegramChat
 {
     public long Id { get; init; }
+    public string? Type { get; init; }
 }
 
 public sealed record TelegramUser
@@ -32,3 +34,15 @@ public sealed record TelegramUser
 
 /// <summary>A message the bot should send back, addressed to a chat.</summary>
 public sealed record TelegramReply(long ChatId, string Text);
+
+public sealed record TelegramCallbackQuery
+{
+    public string Id { get; init; } = "";
+    public TelegramUser? From { get; init; }
+    public TelegramMessage? Message { get; init; }
+    public string? Data { get; init; }
+}
+
+public sealed record TelegramButton(string Text, string CallbackData);
+public sealed record TelegramKeyboard(IReadOnlyList<IReadOnlyList<TelegramButton>> InlineKeyboard);
+public sealed record TelegramSentMessage(long MessageId, TelegramChat Chat);

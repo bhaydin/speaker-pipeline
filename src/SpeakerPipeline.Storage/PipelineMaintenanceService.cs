@@ -1,9 +1,10 @@
 using SpeakerPipeline.Core;
+using Microsoft.Extensions.Options;
 
 namespace SpeakerPipeline.Storage;
 
 /// <summary>Conditional, journaled maintenance. All originals are durable before the first business write.</summary>
-internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPipelineMaintenanceService
+internal sealed class PipelineMaintenanceService(IMaintenanceStore store, IOptions<StorageOptions>? options = null) : IPipelineMaintenanceService
 {
     public async Task<MaintenanceSnapshot> ExportAsync(bool writersFrozen, CancellationToken ct = default)
     {
@@ -17,6 +18,7 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
         }
         var snapshot = new MaintenanceSnapshot
         {
+            Version = store.Target.TableNames.Count > MaintenanceIntegrity.TableNames.Length ? 2 : 1,
             SnapshotId = Guid.NewGuid().ToString("n"), CreatedUtc = DateTimeOffset.UtcNow,
             WritersFrozen = writersFrozen, Target = store.Target, Tables = rows,
         };
@@ -172,7 +174,7 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
         ValidateCreateOnlyRestore(expected, current);
         operationLock.EnsureHeld();
         await store.ArchiveSnapshotRestoreAsync(snapshot, ct).ConfigureAwait(false);
-        foreach (var name in new[] { "Talks", "Events", "Topics", "Blackouts", "Submissions", "NotificationLog" })
+        foreach (var name in snapshot.Tables.Keys.OrderBy(n => n == "Submissions" ? 1 : 0).ThenBy(n => n, StringComparer.Ordinal))
         {
             foreach (var row in snapshot.Tables[name])
             {
@@ -212,6 +214,8 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
 
     private void ValidatePlan(MaintenancePlan plan)
     {
+        if (options?.Value.OpportunitiesEnabled == true && plan.Changes.Any(c => c.Table is "Events" or "Opportunities"))
+            throw new InvalidOperationException("Legacy cleanup cannot mutate the frozen Events baseline or authoritative opportunity aggregates after cutover.");
         ValidateOperationId(plan.OperationId);
         var snapshot = plan.Snapshot;
         ValidateSnapshot(snapshot);
@@ -220,16 +224,19 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
 
     private void ValidateSnapshot(MaintenanceSnapshot snapshot, bool allowDifferentTarget = false)
     {
-        if (snapshot.Version != 1 || string.IsNullOrWhiteSpace(snapshot.SnapshotId) || snapshot.CreatedUtc == default)
+        if (snapshot.Version is not (1 or 2) || string.IsNullOrWhiteSpace(snapshot.SnapshotId) || snapshot.CreatedUtc == default)
             throw new ArgumentException("Unsupported or incomplete maintenance snapshot.");
         if (snapshot.Checksum != MaintenanceIntegrity.SnapshotChecksum(snapshot))
             throw new ArgumentException("Snapshot checksum does not match its contents.");
         if (!allowDifferentTarget && (snapshot.Target.TableEndpoint != store.Target.TableEndpoint ||
-            snapshot.Target.TableNames.Count != store.Target.TableNames.Count ||
-            store.Target.TableNames.Any(p => !snapshot.Target.TableNames.TryGetValue(p.Key, out var name) || name != p.Value)))
+            snapshot.Target.TableNames.Any(p => !store.Target.TableNames.TryGetValue(p.Key, out var name) || name != p.Value)))
             throw new ArgumentException("Snapshot belongs to a different storage target.");
-        if (snapshot.Tables.Count != MaintenanceIntegrity.TableNames.Length || MaintenanceIntegrity.TableNames.Any(n => !snapshot.Tables.ContainsKey(n)))
-            throw new ArgumentException("A complete snapshot of all six business tables is required.");
+        if (MaintenanceIntegrity.TableNames.Any(n => !snapshot.Tables.ContainsKey(n)) ||
+            (snapshot.Version == 1 && snapshot.Tables.Count != MaintenanceIntegrity.TableNames.Length) ||
+            snapshot.Tables.Count != snapshot.Target.TableNames.Count || snapshot.Tables.Keys.Any(n => !snapshot.Target.TableNames.ContainsKey(n)))
+            throw new ArgumentException("A complete versioned snapshot table inventory is required.");
+        if (snapshot.Tables.Keys.Any(n => !store.Target.TableNames.ContainsKey(n)))
+            throw new ArgumentException("The destination has not provisioned every table in the snapshot.");
         foreach (var table in snapshot.Tables)
         {
             if (table.Value.Select(Key).Distinct().Count() != table.Value.Count)
@@ -367,7 +374,7 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
     {
         foreach (var (key, submission) in rows.Where(p => p.Key.Table == "Submissions"))
         {
-            if (!rows.ContainsKey(("Events", "events", key.Partition)))
+            if (!rows.ContainsKey(("Events", "events", key.Partition)) && !rows.ContainsKey(("Opportunities", key.Partition, "current")))
                 throw new InvalidOperationException($"Submission '{key.Partition}/{key.Row}' would have no event.");
             if (!submission.Properties.TryGetValue("TalkSlug", out var talk) || talk.Type != MaintenanceValueType.String ||
                 !rows.ContainsKey(("Talks", "talks", talk.Value)))

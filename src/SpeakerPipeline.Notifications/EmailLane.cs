@@ -50,8 +50,7 @@ public sealed class EmailLane(
         using var resp = await http.SendAsync(request, ct);
         if (!resp.IsSuccessStatusCode)
         {
-            var body = await resp.Content.ReadAsStringAsync(ct);
-            logger.LogError("Email send failed: {Status} {Body}", (int)resp.StatusCode, body);
+            logger.LogError("Email send failed: {Status}", (int)resp.StatusCode);
             resp.EnsureSuccessStatusCode();
         }
 
@@ -66,11 +65,30 @@ public sealed class EmailLane(
             message = new
             {
                 subject = n.Subject,
-                body = new { contentType = "HTML", content = n.HtmlBody },
+                body = new { contentType = "HTML", content = Render(n) },
                 toRecipients = new[] { new { emailAddress = new { address = recipient } } },
             },
             saveToSentItems = true,
         };
         return JsonSerializer.Serialize(message);
+    }
+
+    private static string Render(Notification notification)
+    {
+        if (notification.Groups.Count == 0) return notification.HtmlBody;
+        var body = new StringBuilder();
+        foreach (var group in notification.Groups)
+        {
+            body.Append("<h2>").Append(System.Net.WebUtility.HtmlEncode(group.Title)).Append("</h2>");
+            foreach (var item in group.Items)
+            {
+                var name = System.Net.WebUtility.HtmlEncode(item.Name);
+                if (Uri.TryCreate(item.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+                    name = $"<a href=\"{System.Net.WebUtility.HtmlEncode(uri.AbsoluteUri)}\">{name}</a>";
+                body.Append("<p><strong>").Append(name).Append("</strong><br>")
+                    .Append(System.Net.WebUtility.HtmlEncode(item.Detail).Replace("\n", "<br>", StringComparison.Ordinal)).Append("</p>");
+            }
+        }
+        return body.ToString();
     }
 }

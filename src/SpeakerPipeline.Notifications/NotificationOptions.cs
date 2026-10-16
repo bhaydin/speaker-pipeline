@@ -1,5 +1,10 @@
 namespace SpeakerPipeline.Notifications;
 
+public sealed class PipelineNotificationOptions
+{
+    public bool OpportunitiesEnabled { get; set; }
+}
+
 /// <summary>
 /// Configuration bound from the "Notifications" section.
 /// </summary>
@@ -8,13 +13,20 @@ public sealed class NotificationOptions
     public const string SectionName = "Notifications";
 
     public EmailLaneOptions Email { get; set; } = new();
+    public Dictionary<string, ModelTokenPricing> ModelPricing { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// When true, a <b>scheduled</b> (timer) run that changed nothing sends no
-    /// notification — cutting the daily "nothing new" heartbeat noise. Manual
-    /// (HTTP) runs always confirm regardless. Default false (every run notifies).
+    /// Compatibility setting retained for existing deployments; ignored.
+    /// Healthy runs with no changes are silent for both timer and HTTP triggers.
+    /// Operational incidents and recovery are reported independently.
     /// </summary>
-    public bool SuppressEmptyScheduledRuns { get; set; }
+    public bool SuppressEmptyScheduledRuns { get; set; } = true;
+}
+
+public sealed class ModelTokenPricing
+{
+    public decimal? InputUsdPerMillionTokens { get; set; }
+    public decimal? CompletionUsdPerMillionTokens { get; set; }
 }
 
 /// <summary>

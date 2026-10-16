@@ -14,6 +14,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddDiscoveryAgent(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<DiscoveryDiagnostics>();
         services.AddOptions<DiscoveryOptions>()
             .Bind(configuration.GetSection(DiscoveryOptions.SectionName))
             .ValidateOnStart();
@@ -35,7 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddOptions<SearchOptions>()
             .Bind(configuration.GetSection(SearchOptions.SectionName));
         services.AddHttpClient<ISearchAdapter, GoogleProgrammableSearchAdapter>(c =>
-            c.Timeout = TimeSpan.FromSeconds(20));
+            c.Timeout = TimeSpan.FromSeconds(20)).RemoveAllLoggers();
         services.AddHttpClient<SearchSource>(c =>
         {
             c.Timeout = TimeSpan.FromSeconds(20);
@@ -62,7 +63,7 @@ public static class ServiceCollectionExtensions
             sp.GetServices<ISourceAdapter>(),
             sp.GetRequiredService<IOptions<DiscoveryOptions>>(),
             sp.GetRequiredService<IOptions<SearchOptions>>(),
-            sp.GetRequiredService<ILogger<DiscoveryAgent>>()));
+            sp.GetRequiredService<ILogger<DiscoveryAgent>>(), sp.GetRequiredService<DiscoveryDiagnostics>()));
 
         // Manual ingestion lane: shares the discovery extraction model + reconcile
         // primitives; fetches a single vouched-for URL at a lower floor.

@@ -14,7 +14,10 @@ public sealed class TelegramCommandRouter(
     ISpeakerPipelineApiClient api,
     IEventIngestService ingest,
     IOptions<TelegramOptions> options,
-    ILogger<TelegramCommandRouter> logger)
+    ILogger<TelegramCommandRouter> logger,
+    SpeakerPipeline.Notifications.PipelineHealth? health = null,
+    IOpportunityApiClient? opportunities = null,
+    IOptions<SpeakerPipeline.Notifications.PipelineNotificationOptions>? pipeline = null)
 {
     private readonly TelegramOptions _options = options.Value;
 
@@ -65,21 +68,31 @@ public sealed class TelegramCommandRouter(
 
     private async Task<string> StatusAsync(CancellationToken ct)
     {
-        var events = await api.GetEventsAsync(ct: ct);
+        var current = pipeline?.Value.OpportunitiesEnabled == true && opportunities is not null
+            ? await opportunities.GetOpportunitiesAsync(ct) : null;
+        var events = current is null ? await api.GetEventsAsync(ct: ct) : current.Select(OpportunityMapping.Project).ToArray();
+        var healthText = "";
+        if (health is not null)
+        {
+            var snapshot = await health.BuildAsync(ct);
+            healthText = "\n\n<b>Health</b>\n" + string.Join("\n", snapshot.Groups.SelectMany(g => g.Items)
+                .Select(i => $"{TelegramText.Escape(i.Name)}: {TelegramText.Escape(i.Detail)}"));
+        }
         if (events.Count == 0)
         {
-            return "📊 <b>Pipeline</b>\nNo events tracked yet.";
+            return "📊 <b>Pipeline</b>\nNo events tracked yet." + healthText;
         }
 
-        var counts = events
+        var counts = current is null ? events
             .GroupBy(e => e.Category)
             .OrderBy(g => g.Key)
-            .Select(g => $"{g.Key} {g.Count()}");
+            .Select(g => $"{g.Key} {g.Count()}")
+            : current.GroupBy(o => o.Status).OrderBy(g => g.Key).Select(g => $"{g.Key} {g.Count()}");
 
         var actionable = events
             .Where(e => e.Category is EventCategory.SubmitNow or EventCategory.Outreach)
+            .Where(e => !e.DoNotResurface && (current is null || current.Any(o => o.Slug == e.Slug && !o.IsSnoozed(DateTimeOffset.UtcNow))))
             .OrderBy(e => e.CfpDeadline ?? DateTimeOffset.MaxValue)
-            .Take(8)
             .ToList();
 
         var sb = new StringBuilder();
@@ -104,7 +117,7 @@ public sealed class TelegramCommandRouter(
             sb.Append("\nReply <code>/approve &lt;slug&gt;</code> or <code>/pass &lt;slug&gt;</code>.");
         }
 
-        return sb.ToString().TrimEnd();
+        return sb.ToString().TrimEnd() + healthText;
     }
 
     private async Task<string> AddTopicAsync(string argument, CancellationToken ct)
@@ -188,6 +201,8 @@ public sealed class TelegramCommandRouter(
 
     private async Task<string> ApplyAsync(string argument, PipelineAction action, string note, CancellationToken ct)
     {
+        if (action == PipelineAction.Skip && pipeline?.Value.OpportunitiesEnabled == true)
+            return "Use the item's Drop button to choose a reason, or open its dashboard details. A reason is required before dropping an opportunity.";
         var slug = argument.Trim();
         if (string.IsNullOrWhiteSpace(slug))
         {

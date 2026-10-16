@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
+    <ProjectReference Include="..\SpeakerPipeline.Notifications\SpeakerPipeline.Notifications.csproj" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="SpeakerPipeline.Agents.Scoring.Tests" /></ItemGroup>
+</Project>

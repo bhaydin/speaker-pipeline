@@ -53,7 +53,7 @@ public static class PipelineContextAssembler
         }
 
         var committed = events
-            .Where(e => CommittedCategories.Contains(e.Category))
+            .Where(e => CommittedCategories.Contains(e.Category) || e.RecordedSubmissionStatus == SubmissionStatus.Accepted)
             .Select(e => new CommittedEngagement(e.Slug, e.Name, e.EventDateStart, e.EventDateEnd, EffortFor(e)))
             .OrderBy(c => c.Start ?? DateTimeOffset.MaxValue)
             .ToList();
@@ -66,7 +66,7 @@ public static class PipelineContextAssembler
         var next = now.AddMonths(1);
 
         int PrepCount(int year, int month) => events.Count(e =>
-            PrepCategories.Contains(e.Category)
+            (PrepCategories.Contains(e.Category) || e.RecordedSubmissionStatus is SubmissionStatus.Submitted or SubmissionStatus.InReview or SubmissionStatus.Accepted)
             && e.EventDateStart is { } d && d.Year == year && d.Month == month
             && EffortFor(e) == EffortClass.NewTopic);
 
