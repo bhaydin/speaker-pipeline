@@ -39,7 +39,10 @@ public static class CatalogScoringContext
         var examples = feedback.Select(f => new { f.Id, f.EventName, f.Verdict, f.Agree, ReasonCode = f.ReasonCode?.ToString(), Reason = Limit(f.Reason, 400), f.Decision!.FitRationale, MatchedTalks = f.Decision.MatchedTalks.Select(m => m.TalkId) });
         var data = new
         {
-            currentTalks = talks.Select(t => new { t.TalkId, t.CurrentVersionId, t.Title, Abstract = Limit(t.Abstract, 1400), t.Topics, t.Audiences, t.Formats, t.AudienceLevel, t.Status, t.NeedsReview }),
+            // The prompt/fingerprint must reflect the full repeat policy, including
+            // URL matches and deliveries older than the bounded history below.
+            currentTalks = talks.Select(t => new { t.TalkId, t.CurrentVersionId, t.Title, Abstract = Limit(t.Abstract, 1400), t.Topics, t.Audiences, t.Formats, t.AudienceLevel, t.Status, t.NeedsReview,
+                PreviouslyDeliveredAtEventSeries = IsRepeat(ev, t.TalkId, catalog) }),
             deliveries = history,
             calibrationExamples = examples,
             ev.RepeatTalkOverride,

@@ -55,6 +55,46 @@ public sealed class ScoringCacheTests
         Assert.NotEqual(Input().Fingerprint, Input(feedback: [unrelated, relevant]).Fingerprint);
     }
 
+    [Fact]
+    public void Event_url_correction_invalidates_when_it_changes_full_catalog_repeat_result()
+    {
+        var catalog = Catalog with { Deliveries = [new()
+        {
+            DeliveryId = "past", TalkId = "agentops", EventName = "Previous brand name",
+            EventUrl = "https://example.org/conference/2025", Status = "completed", Source = Source,
+        }] };
+        var before = Input(Event with { EventUrl = "https://other.example.org/" }, catalog: catalog);
+        var after = Input(Event with { EventUrl = "https://example.org/conference/2027" }, catalog: catalog);
+
+        Assert.NotEqual(before.Fingerprint, after.Fingerprint);
+        Assert.NotEqual(before.CatalogContextRevision, after.CatalogContextRevision);
+        Assert.Contains("\"PreviouslyDeliveredAtEventSeries\":true", after.Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Delivery_beyond_prompt_history_limit_invalidates_when_it_changes_repeat_result()
+    {
+        var recent = Enumerable.Range(0, 24).Select(i => new CatalogDelivery
+        {
+            DeliveryId = $"recent-{i}", TalkId = "agentops", EventName = $"Unrelated venue {i}",
+            Date = Now.AddDays(-i), Status = "completed", Source = Source,
+        }).ToArray();
+        var old = new CatalogDelivery
+        {
+            DeliveryId = "older-than-history-limit", TalkId = "agentops", EventName = "Historic series branding", EventSeriesId = Event.Slug,
+            Date = Now.AddYears(-2), Status = "planned", Source = Source,
+        };
+        var before = Input(catalog: Catalog with { Deliveries = [.. recent, old] });
+        var after = Input(catalog: Catalog with { Deliveries = [.. recent, old with { Status = "completed" }] });
+        var unrelated = Input(catalog: Catalog with { Deliveries = [.. recent, old with { EventName = "Unrelated older venue", EventSeriesId = null, Status = "completed" }] });
+
+        Assert.NotEqual(before.Fingerprint, after.Fingerprint);
+        Assert.NotEqual(before.CatalogContextRevision, after.CatalogContextRevision);
+        Assert.Equal(before.Fingerprint, unrelated.Fingerprint);
+        Assert.DoesNotContain(old.EventName, after.Prompt, StringComparison.Ordinal);
+        Assert.Contains("\"PreviouslyDeliveredAtEventSeries\":true", after.Prompt, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(3, 81920, 3, 2)]
     [InlineData(20, 8192, 2, 2)]

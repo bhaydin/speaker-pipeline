@@ -6,6 +6,29 @@ namespace SpeakerPipeline.Notifications.Tests;
 public sealed class NotificationOutboxTests
 {
     [Fact]
+    public async Task Repeated_identity_honors_backoff_without_consuming_attempts_and_due_worker_still_sends()
+    {
+        var store = new MemoryOperations(); var clock = new Clock();
+        var outbox = new NotificationOutbox(store, new DeliveryCoordinator(store, clock), clock);
+        var lane = new Lane(NotificationChannel.Telegram) { FailPartOnce = "0" };
+        Assert.Equal("Failed", (await outbox.DeliverAsync("health:week", lane, Part("0", "original"), default)).Status);
+        for (var i = 0; i < 6; i++)
+            Assert.Equal("Busy", (await outbox.DeliverAsync("health:week", lane, Part("0", "changed caller payload"), default)).Status);
+        clock.Advance(TimeSpan.FromMinutes(9));
+        Assert.Equal("Busy", (await outbox.DeliverAsync("health:week", lane, Part("0", "changed caller payload"), default)).Status);
+        Assert.Equal(0, await outbox.RetryAsync([lane], default));
+        var pending = OperationState.Read<OutboxEntry>(Assert.Single(await store.ListAsync("outbox", DateTimeOffset.MinValue)))!;
+        Assert.Equal("Ready", pending.Status);
+        Assert.Equal(1, pending.Attempts);
+        Assert.Single(lane.Attempts);
+
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Assert.Equal(1, await outbox.RetryAsync([lane], default));
+        Assert.Equal(new[] { "original", "original" }, lane.Attempts.Select(p => p.Text));
+        Assert.Equal("Completed", OperationState.Read<OutboxEntry>(Assert.Single(await store.ListAsync("outbox", DateTimeOffset.MinValue)))!.Status);
+    }
+
+    [Fact]
     public async Task Worker_retries_only_the_failed_original_channel_part_and_honors_disabled_lanes()
     {
         var store = new MemoryOperations();
@@ -121,6 +144,10 @@ public sealed class NotificationOutboxTests
         var first = outbox.RetryAsync([lane], default);
         await lane.Started.Task;
         Assert.Equal(0, await outbox.RetryAsync([lane], default));
+        Assert.Equal("Busy", (await outbox.DeliverAsync("key", lane, Part("0", "repeat"), default)).Status);
+        var processing = OperationState.Read<OutboxEntry>(Assert.Single(await store.ListAsync("outbox", DateTimeOffset.MinValue)))!;
+        Assert.Equal("Processing", processing.Status);
+        Assert.Equal(1, processing.Attempts);
         lane.Finish.SetResult(); await first;
         Assert.Equal(2, lane.Attempts.Count);
     }
@@ -143,6 +170,7 @@ public sealed class NotificationOutboxTests
         private DateTimeOffset _now = DateTimeOffset.Parse("2026-10-19T13:00:00Z");
         public override DateTimeOffset GetUtcNow() => _now;
         public void Advance() => _now = _now.AddHours(2);
+        public void Advance(TimeSpan amount) => _now += amount;
     }
     private sealed class Lane(NotificationChannel channel) : INotificationLane
     {

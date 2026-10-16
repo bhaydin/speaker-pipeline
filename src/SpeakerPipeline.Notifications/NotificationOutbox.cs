@@ -40,6 +40,12 @@ public sealed class NotificationOutbox(IOperationsApiClient operations, Delivery
                 ?? await operations.GetAsync("outbox", id, ct)
                 ?? throw new InvalidOperationException("Outbox identity could not be persisted.");
         }
+        var pending = OperationState.Read<OutboxEntry>(document)!;
+        // Repeated run/health notifications reuse this identity. Honor both failure
+        // backoff and an active worker lease before reaching the delivery coordinator.
+        // RetryAsync owns its freshly claimed lease and calls AttemptAsync directly.
+        if (pending.Status is "Ready" or "Processing" && pending.NextAttemptUtc > time.GetUtcNow())
+            return new("Busy");
         return await AttemptAsync(document, lane, ct);
     }
 
