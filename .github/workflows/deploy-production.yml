@@ -100,6 +100,9 @@ jobs:
       - name: Pin runtime mode and apply additive application configuration
         run: |
           set -euo pipefail
+          # The package also contains the hosted Blazor client's runtimeconfig.
+          # Always launch the API explicitly, including when replaying an artifact.
+          az webapp config set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --startup-file "dotnet /home/site/wwwroot/SpeakerPipeline.Api.dll" --output none
           az webapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --output none --settings ASPNETCORE_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production ASPNETCORE_FORWARDEDHEADERS_ENABLED=true Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
           az functionapp config appsettings set -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --output none --settings @release/functions.settings.json AZURE_FUNCTIONS_ENVIRONMENT=Production DOTNET_ENVIRONMENT=Production Release__CommitSha="$RELEASE_SHA" Release__CiRunId="$CI_RUN_ID"
 
