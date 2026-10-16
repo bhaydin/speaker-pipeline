@@ -119,6 +119,25 @@ If review identifies candidates, obtain targeted `ScoreAsync` proposals separate
 with the cleaned context; do not run the global scoring trigger or silently apply
 recommendations. This CLI step performs no scoring or decision writes.
 
+After reviewing concrete shadow output and resolving any manual intent, prepare a
+private JSON array with `eventSlug`, `category`, `priority`, `nextAction`,
+`decidedByAgent`, `reason`, and `outputProofSha256`. Compute the proof from the
+actual private shadow-output file; the builder validates its format and binds it
+to the manifest, but does not independently verify that file. `nextAction` holds
+the reviewed rationale (at most 240 characters). Each decision must identify an
+agent-marked candidate without suppression or a retained submission.
+
+```powershell
+dotnet run --project tools/SpeakerPipeline.Migrate -- review-scoring --api $api --source "$private/reviewed-scoring-decisions.json" --snapshot "$private/after.json" --output "$private/scoring-repair-manifest.json"
+```
+
+This offline command creates a proposal for only the four approved fields:
+`Category`, `Priority`, `NextAction`, and `DecidedByAgent`. It makes no model or API
+calls. Supported outcomes are SubmitNow, Outreach, Monitor, and Pass; suppression
+and committed decisions remain protected. Review the resulting manifest, then
+use the existing `apply` command with that same frozen snapshot. The maintenance
+journal supports retry and selective rollback without triggering notifications.
+
 ## Restore the touched rows
 
 Keep writers frozen. Restore reads the original snapshot and completion state
