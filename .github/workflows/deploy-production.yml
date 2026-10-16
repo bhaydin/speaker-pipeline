@@ -108,6 +108,16 @@ jobs:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           package: release/api.zip
 
+      - name: Restart API before dependency checks
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          # Start a clean process that loads the deployed assemblies before dependency checks.
+          az webapp restart --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --only-show-errors --output none
+
       - name: Verify API health and authorization before deploying consumers
         run: |
           set -euo pipefail
