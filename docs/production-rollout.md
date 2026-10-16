@@ -5,13 +5,19 @@ historical; there is no hosted development environment or promotion pipeline.
 Real records, private exports, tokens and deployment credentials never enter
 Git, CI artifacts or public logs. Repository samples remain fictional test data.
 
-## Recorded cutover progress — 2026-10-16
+## Recorded cutover — 2026-10-16
 
-The manual production release succeeded, authenticated readiness passed, and
-the API write freeze was verified. The final frozen backup contained 502 rows
-across all six business tables. An isolated local API restored that backup with
-exact logical equality, then rehearsed all 12 cleanup changes and their
-journaled rollback before the live apply.
+The [final manual production release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38943407144)
+succeeded using application packages from
+[successful main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38937181101).
+Latest solution validation passed 378 tests and both deterministic eval suites;
+the opt-in Azurite integration test passed separately. Authenticated API and
+Functions readiness, ordinary reads, negative authentication and release-identity
+denial of maintenance access passed.
+
+The final frozen backup contained 502 rows across all six business tables. An
+isolated local API restored it with exact logical equality, then rehearsed all
+12 cleanup changes and their journaled rollback before the live apply.
 
 The reviewed live cleanup removed five fictional events, their three fixture
 submissions and four placeholder deck properties. It retained 38 events, all four
@@ -19,18 +25,40 @@ adopted talks and all 452 notification records: 494 rows total. Submissions,
 Topics and Blackouts are empty. Retained content and reference checks passed;
 retrying the completed cleanup operation made no changes.
 
-Recomputation found zero conflict-flag repairs. The user identified the two prior
-scoring decisions as tests rather than manual selections. Their approved private
-repairs remain unapplied, pending the supporting release and a fresh frozen
-snapshot; the real event rows will be retained. Controlled tracker maintenance
-examined 38 events, and bounded discovery examined three candidates; neither run
-changed records. Private backup, manifests, receipts and comparison evidence
-remain outside Git.
+Recomputation found zero conflict-flag repairs. The user confirmed that two prior
+scoring decisions were tests. The approved repairs updated eight reviewed field
+values across those two retained event rows. All 494 rows were verified, all
+452 notification records remained unchanged, and retry made no further changes.
+Controlled tracker maintenance examined 38 events, and bounded discovery examined
+three candidates; neither run wrote records.
 
-Normal operation has not been restored. The remaining acceptance gates are the
-approved scoring repairs, deliberate resumption of writers and delivery, and
-the first scheduled runs with telemetry and alert checks. The cutover is not yet
-complete; the procedure below remains the operating and recovery runbook.
+Five obsolete items were retired after checks across nine accessible
+subscriptions: the legacy deployment environment and its federation, two unused
+managed identities, and the API identity's unnecessary Foundry permission.
+Production identities, required access and the retained release federations were
+preserved. Functions API access recovered after changing only its requested scope
+to `<API-application-id>/.default`, using the same audience, identity and role.
+The observed recovery does not establish the underlying token-cache cause.
+
+Normal operation was verified at 18:07:21 UTC. Maintenance administration is
+closed, the ten original writer/delivery controls are restored, and unrelated
+settings are unchanged. API and Functions readiness returned 200 after a verified
+replacement Functions startup; maintenance administration returned 404 and
+anonymous/dev-token calls returned 401. All four failure/missed-run alerts were
+enabled and reread at 18:19:00 UTC, each with verified action-group routing.
+
+The final telemetry gate passed at 18:18:05 UTC: all four alert queries reported
+zero breaches, readiness and consumer paths returned 200, and successful Table
+dependencies and a Functions-to-API span were observed without new failures or
+exceptions. No notification calls or notification-log writes were recorded during
+the maintenance interval from 16:33:31 to 18:04:50 UTC.
+
+The first scheduled-run observations remain open: Discovery on 2026-10-17 at
+05:00 UTC, Tracker at 05:30 UTC, and Scoring on 2026-10-19 at 06:00 UTC. Verify
+successful completion telemetry and any expected deduplicated notifications.
+Hashes were verified for 23 private recovery artifacts. Retain the packages,
+configuration, snapshots, manifests and journals through at least 2026-11-16 and
+until these acceptance observations are resolved.
 
 ## Prepare the release boundary
 
@@ -53,9 +81,9 @@ The release identity's federated credential uses issuer
 and subject `repo:bhaydin/speaker-pipeline:environment:production`. It needs
 deployment/configuration and host-key read access on the two existing apps, plus
 the API's **Pipeline.Access** app role for authenticated smoke checks. It does
-not need **Pipeline.Maintenance** or direct pipeline data-plane access. Retain the
-old federation only until the new release path succeeds, then remove unused
-`dev` GitHub environment/federation entries after checking their dependencies.
+not need **Pipeline.Maintenance** or direct pipeline data-plane access. The legacy
+`dev` GitHub environment and its federation were retired after dependency checks.
+The production and main-branch federations remain.
 
 Branch protection should require CI's Markdown, sample JSON and full solution
 test jobs. CI builds the entire solution, runs all unit tests and both eval
@@ -66,12 +94,11 @@ package privately before expiry if it must remain a rollback target.
 
 ## Establish the maintenance window
 
-For the first rollout, the deployed legacy API has no maintenance endpoints and
-does not enforce the write-freeze setting. After pausing and draining consumers
-in steps 1–2, reconcile infrastructure and complete **Release and verify** below
-before step 3. Prove that the newly deployed API rejects ordinary writes before
-taking the final snapshot. Later maintenance windows can use the sequence below
-directly. A configuration flag on the legacy binary is not a write barrier.
+During the initial rollout, the legacy API had no maintenance endpoints or
+write-freeze enforcement. Consumers were paused and drained before deploying the
+maintenance-capable API, and ordinary-write rejection was verified before the
+final snapshot. Future maintenance windows can use the sequence below directly.
+A configuration flag on a retained legacy binary is not a write barrier.
 
 1. Record the exact subscription, resource names, data counts, current code
    package/version, identity assignments and app settings in private storage.
@@ -118,13 +145,19 @@ packages without rebuilding, pins the runtime to Production, and applies only
 additive application configuration. Identity/endpoints/Key Vault references must
 already be present; see the existing configuration snapshot.
 
-Before deploying consumers it verifies API `/health`, protected `/health/ready`,
-authenticated reads and rejection of the literal dev token. After the Functions
-deploy it verifies all expected functions and calls the key-protected
-`/api/readiness` without logging the key. Neither smoke check sends notifications
-or writes pipeline records. The workflow compares operational switches before
-and after deployment and fails if they changed. A green release is required;
-app-setting release markers alone are not evidence of success.
+Before deploying consumers it explicitly restarts the API, then verifies `/health`,
+protected `/health/ready`, authenticated reads, anonymous/dev-token rejection and
+403 denial of maintenance access to the release identity. Each HTTP assertion
+uses bounded retries for transport and transient service failures; unexpected
+authorization results fail immediately. This covers startup transitions between
+checks as well as initial warmup, within a 25-minute job limit.
+
+After the Functions deploy it verifies all expected functions and calls the
+key-protected `/api/readiness` without logging the key, then rechecks authenticated
+API readiness. These checks send no notifications and write no pipeline records.
+The workflow compares operational switches before and after deployment and fails
+if they changed. A green release is required; app-setting release markers alone
+are not evidence of success.
 
 Complete the reviewed cleanup through the maintenance API while writers remain
 paused. Verify retained records, cross-table references and fixture absence;
@@ -171,8 +204,9 @@ it while maintenance API restore work is still required.
 
 Code rollback does not restore deleted data. Use the maintenance restore path
 with its reviewed backup and conflict checks before reopening writes. Stop on
-changed rows rather than overwriting concurrent work. Retain backup and journal
-until the acceptance window is complete; close the maintenance interface, remove
+changed rows rather than overwriting concurrent work. Retain this cutover's backup
+and journal through at least 2026-11-16 and until the acceptance window is complete;
+close the maintenance interface, remove
 temporary operator assignments and verify scheduled-run alerts after recovery.
 
 References: [GitHub artifact retention and download](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)
