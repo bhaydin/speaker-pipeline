@@ -53,6 +53,14 @@ internal static class MigrationCli
                 await output.WriteLineAsync($"Reviewed cleanup manifest: {reviewed.Plan.Changes.Count} exact changes. No API writes. Operation: {reviewed.Plan.OperationId}.");
                 return 0;
             }
+            if (options.Command == "review-scoring")
+            {
+                var export = PrivateFiles.Read<SnapshotFile>(options.Snapshot!);
+                var reviewed = ReviewedScoringManifestBuilder.Build(export, options.Api, options.Source!);
+                PrivateFiles.WriteNew(options.Output!, reviewed);
+                await output.WriteLineAsync($"Reviewed scoring manifest: {reviewed.Plan.Changes.Count} exact decision proposals. No model calls, API writes, or notifications. Operation: {reviewed.Plan.OperationId}.");
+                return 0;
+            }
             if (options.Command is "samples" or "import")
             {
                 var batch = ImportBatch.Load(options.Source!, samples: options.Command == "samples");

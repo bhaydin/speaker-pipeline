@@ -5,6 +5,33 @@ historical; there is no hosted development environment or promotion pipeline.
 Real records, private exports, tokens and deployment credentials never enter
 Git, CI artifacts or public logs. Repository samples remain fictional test data.
 
+## Recorded cutover progress — 2026-10-16
+
+The manual production release succeeded, authenticated readiness passed, and
+the API write freeze was verified. The final frozen backup contained 502 rows
+across all six business tables. An isolated local API restored that backup with
+exact logical equality, then rehearsed all 12 cleanup changes and their
+journaled rollback before the live apply.
+
+The reviewed live cleanup removed five fictional events, their three fixture
+submissions and four placeholder deck properties. It retained 38 events, all four
+adopted talks and all 452 notification records: 494 rows total. Submissions,
+Topics and Blackouts are empty. Retained content and reference checks passed;
+retrying the completed cleanup operation made no changes.
+
+Recomputation found zero conflict-flag repairs. The user identified the two prior
+scoring decisions as tests rather than manual selections. Their approved private
+repairs remain unapplied, pending the supporting release and a fresh frozen
+snapshot; the real event rows will be retained. Controlled tracker maintenance
+examined 38 events, and bounded discovery examined three candidates; neither run
+changed records. Private backup, manifests, receipts and comparison evidence
+remain outside Git.
+
+Normal operation has not been restored. The remaining acceptance gates are the
+approved scoring repairs, deliberate resumption of writers and delivery, and
+the first scheduled runs with telemetry and alert checks. The cutover is not yet
+complete; the procedure below remains the operating and recovery runbook.
+
 ## Prepare the release boundary
 
 Configure one GitHub environment named **production**, restricted to `main`,

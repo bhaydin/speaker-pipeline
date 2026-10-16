@@ -3,10 +3,11 @@ namespace SpeakerPipeline.Migrate;
 internal sealed record CliOptions(string Command, Uri Api, string? Source, string? Snapshot, string? Output, string? Scope, bool Apply,
     DateTimeOffset? At = null, int? PrepWindowDays = null, int? PrepThreshold = null, string? RepairsOutput = null)
 {
-    public const string Usage = "Commands: samples, import, export, preview, review, apply, restore, restore-snapshot, recompute. Required: --api <absolute URL>. " +
+    public const string Usage = "Commands: samples, import, export, preview, review, review-scoring, apply, restore, restore-snapshot, recompute. Required: --api <absolute URL>. " +
         "Remote API: --scope <API scope> (Azure CLI login). samples/import: --source <directory> [--apply]. " +
         "export: --output <private snapshot.json>. preview: --source <snapshot.json> --output <private manifest.json>. " +
         "review: --source <reviewed-decisions.json> --snapshot <snapshot.json> --output <private manifest.json>. " +
+        "review-scoring: --source <reviewed-scoring-decisions.json> --snapshot <snapshot.json> --output <private manifest.json> (offline proposal only). " +
         "apply/restore: --source <manifest.json> --snapshot <snapshot.json> --output <private result.json> [restore: --apply]. " +
         "restore-snapshot: --source <snapshot.json> --output <private result.json> [--apply]. " +
         "recompute: --source <before.json> --snapshot <after.json> --at <UTC timestamp> --prep-window-days <deployed value> --prep-threshold <deployed value> --output <private report.json> --repairs-output <private manifest.json>. " +
@@ -14,7 +15,7 @@ internal sealed record CliOptions(string Command, Uri Api, string? Source, strin
 
     public static CliOptions Parse(string[] args)
     {
-        if (args.Length == 0 || args[0] is not ("samples" or "import" or "export" or "preview" or "review" or "apply" or "restore" or "restore-snapshot" or "recompute"))
+        if (args.Length == 0 || args[0] is not ("samples" or "import" or "export" or "preview" or "review" or "review-scoring" or "apply" or "restore" or "restore-snapshot" or "recompute"))
             throw new ArgumentException(Usage);
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var apply = false;
@@ -37,13 +38,13 @@ internal sealed record CliOptions(string Command, Uri Api, string? Source, strin
             !string.IsNullOrEmpty(api.UserInfo) || !string.IsNullOrEmpty(api.Query) || !string.IsNullOrEmpty(api.Fragment) || api.AbsolutePath != "/")
             throw new ArgumentException("--api must be an absolute HTTP(S) origin without credentials, path, query, or fragment.");
         var scope = values.GetValueOrDefault("--scope");
-        if (!api.IsLoopback && (api.Scheme != "https" || args[0] is not ("preview" or "review" or "recompute") && string.IsNullOrWhiteSpace(scope)))
+        if (!api.IsLoopback && (api.Scheme != "https" || args[0] is not ("preview" or "review" or "review-scoring" or "recompute") && string.IsNullOrWhiteSpace(scope)))
             throw new ArgumentException("Remote APIs require HTTPS and an explicit --scope; use az login for credentials.");
         if (args[0] == "samples" && !api.IsLoopback)
             throw new ArgumentException("The samples command is restricted to a loopback API.");
         var source = args[0] == "export" ? null : Required("--source");
-        var snapshot = args[0] is "apply" or "restore" or "recompute" or "review" ? Required("--snapshot") : null;
-        var output = args[0] is "export" or "preview" or "apply" or "restore" or "restore-snapshot" or "recompute" or "review" ? Required("--output") : null;
+        var snapshot = args[0] is "apply" or "restore" or "recompute" or "review" or "review-scoring" ? Required("--snapshot") : null;
+        var output = args[0] is "export" or "preview" or "apply" or "restore" or "restore-snapshot" or "recompute" or "review" or "review-scoring" ? Required("--output") : null;
         if (apply && args[0] is not ("samples" or "import" or "restore" or "restore-snapshot")) throw new ArgumentException("--apply is only valid with samples/import/restore/restore-snapshot.");
         var allowed = new HashSet<string> { "--api", "--scope" };
         if (source is not null) allowed.Add("--source");

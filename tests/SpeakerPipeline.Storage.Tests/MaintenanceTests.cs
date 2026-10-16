@@ -283,6 +283,201 @@ public sealed class MaintenanceTests
         Assert.All(store.Journal.Items, item => Assert.Equal("Planned", item.State));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Reviewed_scoring_repair_preserves_manual_content_resumes_and_rolls_back(bool interrupt)
+    {
+        var (store, service, plan) = await ScoringSetup();
+        var original = plan.Snapshot.Tables["Events"].Single(e => e.RowKey == "real");
+        await service.CleanupAsync(new() { Plan = plan });
+        Assert.Equal(0, store.Writes);
+        if (interrupt)
+        {
+            store.CrashAfterMutationTable = "Events";
+            await Assert.ThrowsAsync<IOException>(() => service.CleanupAsync(new() { Plan = plan, Apply = true }));
+            Assert.Equal("Executing", Assert.Single(store.Journal!.Items).State);
+        }
+        await service.CleanupAsync(new() { Plan = plan, Apply = true });
+        var repaired = store.Rows[("Events", "events", "real")];
+        foreach (var property in original.Properties.Where(p => !plan.Changes[0].PropertiesToSet.ContainsKey(p.Key)))
+            Assert.Equal(property.Value, repaired.Properties[property.Key]);
+        Assert.Equal(original.Properties.Count, repaired.Properties.Count);
+        Assert.Equal("Refreshed rationale after removing fictional commitments.", repaired.Properties["NextAction"].Value);
+        Assert.Single(store.Mutations); // A crash after replacement does not cause a second replacement.
+        var writes = store.Writes;
+        await service.CleanupAsync(new() { Plan = plan, Apply = true });
+        Assert.Equal(writes, store.Writes);
+        await service.RestoreAsync(new() { OperationId = plan.OperationId, Apply = true });
+        Assert.Equal(MaintenanceIntegrity.EntityChecksum(original), MaintenanceIntegrity.EntityChecksum(store.Rows[("Events", "events", "real")]));
+    }
+
+    [Theory]
+    [InlineData("Accepted")]
+    [InlineData("Submitted")]
+    [InlineData("Delivered")]
+    [InlineData("Quarantine")]
+    [InlineData("Skip")]
+    [InlineData("Pass")]
+    [InlineData("manual-unmarked")]
+    [InlineData("blank-agent")]
+    [InlineData("wrong-agent-type")]
+    [InlineData("manual-agent")]
+    [InlineData("empty-agent-version")]
+    [InlineData("suppressed")]
+    [InlineData("wrong-suppression-type")]
+    [InlineData("submission")]
+    public async Task Reviewed_scoring_repair_rejects_protected_or_unmarked_originals(string guard)
+    {
+        var (store, service, plan) = await ScoringSetup();
+        var original = store.Rows[("Events", "events", "real")];
+        var properties = new Dictionary<string, MaintenanceValue>(original.Properties);
+        switch (guard)
+        {
+            case "manual-unmarked": properties.Remove("DecidedByAgent"); break;
+            case "blank-agent": properties["DecidedByAgent"] = new(MaintenanceValueType.String, " "); break;
+            case "wrong-agent-type": properties["DecidedByAgent"] = new(MaintenanceValueType.Int32, "1"); break;
+            case "manual-agent": properties["DecidedByAgent"] = new(MaintenanceValueType.String, "manual"); break;
+            case "empty-agent-version": properties["DecidedByAgent"] = new(MaintenanceValueType.String, "scoring-agent-"); break;
+            case "suppressed": properties["DoNotResurface"] = new(MaintenanceValueType.Boolean, "true"); break;
+            case "wrong-suppression-type": properties["DoNotResurface"] = new(MaintenanceValueType.String, "false"); break;
+            case "submission": store.Put("Submissions", Row("real", "kept", ("TalkSlug", "canonical"))); break;
+            default: properties["Category"] = new(MaintenanceValueType.String, guard); break;
+        }
+        store.Put("Events", original with { Properties = properties });
+        plan = plan with { Snapshot = await service.ExportAsync(true) };
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CleanupAsync(new() { Plan = plan, Apply = true }));
+        Assert.Equal(0, store.Writes);
+    }
+
+    [Theory]
+    [InlineData("Category", "Skip")]
+    [InlineData("Category", "Accepted")]
+    [InlineData("Category", "Outreach")]
+    [InlineData("Priority", "Committed")]
+    [InlineData("Priority", "High")]
+    [InlineData("DecidedByAgent", " ")]
+    [InlineData("DecidedByAgent", "manual")]
+    [InlineData("DecidedByAgent", "scoring-agent-")]
+    [InlineData("NextAction", " ")]
+    [InlineData("extra", "Notes")]
+    [InlineData("extra", "DoNotResurface")]
+    [InlineData("extra", "FamilyConflictFlag")]
+    [InlineData("missing", "Priority")]
+    [InlineData("wrong-type", "NextAction")]
+    [InlineData("remove", "Notes")]
+    [InlineData("too-long", "NextAction")]
+    public async Task Reviewed_scoring_repair_rejects_unapproved_fields_types_and_pairs(string field, string value)
+    {
+        var (store, service, plan) = await ScoringSetup();
+        var change = plan.Changes[0];
+        var properties = new Dictionary<string, MaintenanceValue>(change.PropertiesToSet);
+        switch (field)
+        {
+            case "extra": properties[value] = new(MaintenanceValueType.String, "unauthorized"); break;
+            case "missing": properties.Remove(value); break;
+            case "wrong-type": properties[value] = new(MaintenanceValueType.Boolean, "true"); break;
+            case "remove": change = change with { PropertiesToRemove = [value] }; break;
+            case "too-long": properties[value] = new(MaintenanceValueType.String, new string('x', 241)); break;
+            default: properties[field] = new(MaintenanceValueType.String, value); break;
+        }
+        plan = plan with { Changes = [change with { PropertiesToSet = properties }] };
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CleanupAsync(new() { Plan = plan, Apply = true }));
+        Assert.Equal(0, store.Writes);
+    }
+
+    [Theory]
+    [InlineData("target-edit")]
+    [InlineData("new-submission")]
+    [InlineData("unrelated-edit")]
+    public async Task Reviewed_scoring_repair_requires_the_complete_original_snapshot(string drift)
+    {
+        var (store, service, plan) = await ScoringSetup();
+        if (drift == "new-submission") store.Put("Submissions", Row("real", "late", ("TalkSlug", "canonical")));
+        else
+        {
+            var key = drift == "target-edit" ? ("Events", "events", "real") : ("Talks", "talks", "canonical");
+            store.Put(key.Item1, store.Rows[key] with { ETag = "concurrent-user-edit" });
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CleanupAsync(new() { Plan = plan, Apply = true }));
+        Assert.Equal(0, store.Writes);
+    }
+
+    [Theory]
+    [InlineData("Monitor", "SubmitNow", "High")]
+    [InlineData("SubmitNow", "SubmitNow", "MediumHigh")]
+    [InlineData("Outreach", "SubmitNow", "Medium")]
+    [InlineData("Monitor", "SubmitNow", "Low")]
+    [InlineData("Monitor", "Outreach", "Medium")]
+    [InlineData("SubmitNow", "Pass", "NA")]
+    public async Task Reviewed_scoring_repair_accepts_supported_decisions_for_each_original_candidate(string originalCategory, string category, string priority)
+    {
+        var (store, service, plan) = await ScoringSetup();
+        var original = store.Rows[("Events", "events", "real")];
+        var originalProperties = new Dictionary<string, MaintenanceValue>(original.Properties)
+        { ["Category"] = new(MaintenanceValueType.String, originalCategory) };
+        originalProperties.Remove("DoNotResurface"); // Legacy absence means false, never an assignment.
+        store.Put("Events", original with { Properties = originalProperties });
+        var assignments = new Dictionary<string, MaintenanceValue>(plan.Changes[0].PropertiesToSet)
+        {
+            ["Category"] = new(MaintenanceValueType.String, category),
+            ["Priority"] = new(MaintenanceValueType.String, priority),
+        };
+        plan = plan with
+        {
+            Snapshot = await service.ExportAsync(true),
+            Changes = [plan.Changes[0] with { PropertiesToSet = assignments }],
+        };
+        await service.CleanupAsync(new() { Plan = plan, Apply = true });
+        var result = store.Rows[("Events", "events", "real")];
+        Assert.Equal(category, result.Properties["Category"].Value);
+        Assert.Equal(priority, result.Properties["Priority"].Value);
+        Assert.False(result.Properties.ContainsKey("DoNotResurface"));
+    }
+
+    [Fact]
+    public async Task Reviewed_scoring_repair_hash_covers_all_assignments_and_restore_refuses_later_edits()
+    {
+        var (store, service, plan) = await ScoringSetup();
+        var hash = MaintenanceIntegrity.PlanChecksum(plan);
+        foreach (var field in plan.Changes[0].PropertiesToSet.Keys)
+        {
+            var properties = new Dictionary<string, MaintenanceValue>(plan.Changes[0].PropertiesToSet)
+            { [field] = new(MaintenanceValueType.String, "different") };
+            Assert.NotEqual(hash, MaintenanceIntegrity.PlanChecksum(plan with { Changes = [plan.Changes[0] with { PropertiesToSet = properties }] }));
+        }
+        await service.CleanupAsync(new() { Plan = plan, Apply = true });
+        store.Put("Events", store.Rows[("Events", "events", "real")] with { ETag = "later-manual-edit" });
+        var writes = store.Writes;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RestoreAsync(new() { OperationId = plan.OperationId, Apply = true }));
+        Assert.Equal(writes, store.Writes);
+    }
+
+    private static async Task<(MemoryStore Store, PipelineMaintenanceService Service, MaintenancePlan Plan)> ScoringSetup()
+    {
+        var (store, service, basePlan) = await Setup();
+        var row = Row("events", "real", ("Name", "Real event"), ("Category", "Monitor"), ("Priority", "Low"),
+            ("NextAction", "Old rationale with fictional commitment."), ("DecidedByAgent", "scoring-agent-v1"),
+            ("Notes", "Keep manual notes exactly."), ("StatusDetail", "Keep manual status detail."));
+        row.Properties["FutureBytes"] = new(MaintenanceValueType.Binary, "AAEC/w==");
+        row.Properties["DoNotResurface"] = new(MaintenanceValueType.Boolean, "false");
+        row.Properties["FamilyConflictFlag"] = new(MaintenanceValueType.Boolean, "true");
+        store.Put("Events", row);
+        var change = new MaintenanceChange
+        {
+            Table = "Events", PartitionKey = "events", RowKey = row.RowKey, ExpectedETag = row.ETag,
+            Kind = MaintenanceChangeKind.ApplyScoringDecision,
+            PropertiesToSet = new()
+            {
+                ["Category"] = new(MaintenanceValueType.String, "Monitor"),
+                ["Priority"] = new(MaintenanceValueType.String, "Low"),
+                ["NextAction"] = new(MaintenanceValueType.String, "Refreshed rationale after removing fictional commitments."),
+                ["DecidedByAgent"] = new(MaintenanceValueType.String, "scoring-agent-v1"),
+            },
+        };
+        return (store, service, basePlan with { Snapshot = await service.ExportAsync(true), Changes = [change] });
+    }
+
     private static async Task<(MemoryStore Store, PipelineMaintenanceService Service, MaintenancePlan Plan)> Setup()
     {
         var store = new MemoryStore();

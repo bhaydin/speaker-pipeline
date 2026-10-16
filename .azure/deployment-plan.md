@@ -2,6 +2,9 @@
 
 Status: Validated
 
+The production release and reviewed data cleanup have succeeded. Normal
+operation and the first scheduled-run acceptance checks remain pending.
+
 ## Intent and authorization
 
 The user approved implementation of the production promotion plan on 2026-10-16.
@@ -42,9 +45,13 @@ notification destinations and schedules. Disable maintenance access afterward.
   - [x] API roles, OIDC federation, and resource-scoped identity permissions
   - [x] Maintenance preview, concurrency, resume, and restore tests
   - [x] Local Azurite restore rehearsal with matching logical content
-- [ ] Manual production release from successful CI artifacts
-- [ ] Authenticated data reads, negative auth, function registration, and telemetry
-- [ ] Final live backup restored and logically compared through a local API
+- [x] Manual production release from successful CI artifacts
+- [x] Authenticated data reads, negative auth, and function registration/readiness
+- [x] Final live backup restored and logically compared through a local API
+- [x] Reviewed cleanup, exact retained-data verification, and no-op retry
+- [x] Resolve the two private scoring proposals against possible manual intent
+- [ ] Apply the two approved scoring repairs after their supporting release
+- [ ] Restore normal operation and verify first scheduled runs and telemetry
 
 ## Rollback
 
@@ -64,8 +71,8 @@ subscription rather than the CLI default:
   recompute check (327 tests across the solution).
 - The explicit Azurite SDK integration run passed, including all eight property
   types, unknown fields, full create-only restoration, replacement cleanup,
-  idempotent retry and selective rollback. Live-backup rehearsal remains a
-  cutover gate after the maintenance-capable API is deployed.
+  idempotent retry and selective rollback. The subsequent live-backup rehearsal
+  also passed, as recorded below.
 - `dotnet list SpeakerPipeline.slnx package --vulnerable --include-transitive
   --format json`: zero vulnerable packages. The unused identity dependency was
   removed; there is no blanket NU1903 warning exemption.
@@ -84,9 +91,40 @@ subscription rather than the CLI default:
 - Production GitHub environment is main-only with pinned configuration. Entra
   roles and production federation were created; the refreshed owner token was
   verified to carry Pipeline.Access and Pipeline.Maintenance. Functions and the
-  release identity have Pipeline.Access assignments; runtime checks remain a
-  release gate.
+  release identity have Pipeline.Access assignments. The subsequent successful
+  release passed the authenticated runtime checks.
 
 Exact Azure output, resource IDs, configuration backups and token-free validation
 evidence are retained outside Git under the operator's private production-cutover
-directory. No live business data was changed during validation.
+directory. The predeployment validation above did not change live business data.
+
+## Completed cutover gates — 2026-10-16
+
+- The manual production release succeeded. API and Functions readiness passed,
+  and the write freeze was verified before the final backup.
+- The frozen backup contained 502 rows across all six business tables. A full
+  restore through an isolated local API matched every row logically. The local
+  rehearsal applied all 12 cleanup changes and verified their journaled rollback
+  against the original data before the live apply.
+- Live cleanup deleted five confirmed fictional events and their three confirmed
+  fixture submissions, and removed four exact placeholder deck properties.
+  All four adopted talks were retained. The resulting 494 rows comprise 38
+  events, four talks and 452 notification records; the other three tables are
+  empty. Retained content and references passed verification, and retrying the
+  completed operation made no further changes.
+- Cleanup recomputation found no conflict-flag repairs. The user identified the
+  two prior scoring decisions as tests rather than manual selections, resolving
+  the intent review. Two approved private scoring repairs remain unapplied,
+  pending their supporting release and a fresh frozen snapshot. The real event
+  rows will be retained; approval covers only the four reviewed scoring fields.
+- Controlled tracker maintenance examined 38 events, and bounded discovery
+  examined three candidates. Neither run changed pipeline records.
+- The scoring-repair follow-up passed the full solution: 378 tests passed,
+  zero failed, and one opt-in Azurite test was explicitly skipped. Both
+  deterministic eval suites were included (15 and six cases). A separate
+  explicit Azurite SDK integration run passed. These are pre-release checks
+  for the follow-up, not evidence that its scoring repairs have been applied.
+
+These are completed release and cleanup gates, not final acceptance. Normal
+operation has not been restored; first scheduled runs, delivery, alerting and
+telemetry acceptance remain to be verified before declaring the cutover complete.

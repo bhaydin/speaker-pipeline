@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace SpeakerPipeline.Core;
 
 public enum MaintenanceValueType { String, Boolean, Int32, Int64, Double, DateTime, Guid, Binary }
-public enum MaintenanceChangeKind { Delete, RemoveProperties, SetProperties }
+public enum MaintenanceChangeKind { Delete, RemoveProperties, SetProperties, ApplyScoringDecision }
 
 /// <summary>Lossless Table Storage property representation; Value uses invariant text or base64.</summary>
 public sealed record MaintenanceValue(MaintenanceValueType Type, string Value);

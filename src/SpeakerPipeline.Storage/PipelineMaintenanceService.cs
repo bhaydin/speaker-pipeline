@@ -255,8 +255,8 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
                 throw new ArgumentException("Every change must name its exact snapshot ETag.");
             if (change.Kind == MaintenanceChangeKind.Delete && change.PropertiesToRemove.Count != 0)
                 throw new ArgumentException("Delete changes cannot include property repairs.");
-            if (change.Kind != MaintenanceChangeKind.SetProperties && change.PropertiesToSet.Count != 0)
-                throw new ArgumentException("Property assignments require an explicit SetProperties change.");
+            if (change.Kind is not (MaintenanceChangeKind.SetProperties or MaintenanceChangeKind.ApplyScoringDecision) && change.PropertiesToSet.Count != 0)
+                throw new ArgumentException("Property assignments require an explicit repair kind.");
             if (change.Kind == MaintenanceChangeKind.RemoveProperties &&
                 (change.PropertiesToRemove.Count == 0 || change.PropertiesToRemove.Any(p => !before.Properties.ContainsKey(p))))
                 throw new ArgumentException("Repairs must name existing user properties explicitly.");
@@ -270,6 +270,8 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
                 if (change.PropertiesToSet.All(p => before.Properties.TryGetValue(p.Key, out var old) && old == p.Value))
                     throw new ArgumentException("SetProperties must change at least one derived flag.");
             }
+            if (change.Kind == MaintenanceChangeKind.ApplyScoringDecision)
+                ValidateScoringDecision(plan.Snapshot, before, change);
         }
         var projected = Flatten(plan.Snapshot.Tables);
         foreach (var change in plan.Changes)
@@ -279,6 +281,43 @@ internal sealed class PipelineMaintenanceService(IMaintenanceStore store) : IPip
         }
         ValidateReferences(projected);
     }
+
+    private static void ValidateScoringDecision(MaintenanceSnapshot snapshot, MaintenanceEntity before, MaintenanceChange change)
+    {
+        // An agent stamp is only an eligibility guard, not proof that subsequent manual
+        // intent is absent. An operator must review the concrete proposal before applying it.
+        if (change.Table != "Events" || change.PartitionKey != "events" ||
+            StringProperty(before.Properties, "Category") is not ("Monitor" or "SubmitNow" or "Outreach") ||
+            !ScoringAgent(StringProperty(before.Properties, "DecidedByAgent")) ||
+            (before.Properties.TryGetValue("DoNotResurface", out var suppressed) && suppressed != new MaintenanceValue(MaintenanceValueType.Boolean, "false")) ||
+            snapshot.Tables["Submissions"].Any(s => s.PartitionKey == before.RowKey))
+            throw new ArgumentException("Scoring repair requires an agent-marked candidate without suppression or any submission in the original snapshot.");
+
+        var values = change.PropertiesToSet;
+        if (change.PropertiesToRemove.Count != 0 || values.Count != 4 ||
+            values.Keys.Any(k => k is not ("Category" or "Priority" or "NextAction" or "DecidedByAgent")) ||
+            values.Values.Any(v => v.Type != MaintenanceValueType.String || string.IsNullOrWhiteSpace(v.Value)))
+            throw new ArgumentException("Scoring repair requires exactly four nonempty string assignments: Category, Priority, NextAction, DecidedByAgent.");
+        var priority = values["Priority"].Value;
+        var coherent = values["Category"].Value switch
+        {
+            "SubmitNow" => priority is "High" or "MediumHigh" or "Medium" or "Low",
+            "Outreach" => priority == "Medium",
+            "Monitor" => priority == "Low",
+            "Pass" => priority == "NA",
+            _ => false, // Skip requires changing suppression, which this repair must never do.
+        };
+        if (!coherent || values["NextAction"].Value.Length > 240 || !ScoringAgent(values["DecidedByAgent"].Value))
+            throw new ArgumentException("Scoring repair requires a supported category/priority pair, a rationale at most 240 characters, and scoring-agent provenance.");
+        if (values.All(p => before.Properties.TryGetValue(p.Key, out var old) && old == p.Value))
+            throw new ArgumentException("Scoring repair must change at least one approved field.");
+    }
+
+    private static string? StringProperty(Dictionary<string, MaintenanceValue> properties, string name)
+        => properties.TryGetValue(name, out var value) && value.Type == MaintenanceValueType.String ? value.Value : null;
+
+    private static bool ScoringAgent(string? value)
+        => value is { Length: > 14 } && value.StartsWith("scoring-agent-", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(value[14..]);
 
     private async Task ValidateCleanupStateAsync(MaintenanceJournal journal, CancellationToken ct)
     {
