@@ -111,7 +111,8 @@ jobs:
       - name: Verify API health and authorization before deploying consumers
         run: |
           set -euo pipefail
-          host=$(az webapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --query defaultHostName -o tsv)
+          host=$(az webapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" --query 'defaultHostName || properties.defaultHostName' -o tsv)
+          test -n "$host" || { echo '::error::API hostname was not returned by Azure'; exit 1; }
           for attempt in $(seq 1 18); do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/health" || true)
             if [ "$code" = 200 ]; then break; fi
@@ -149,12 +150,18 @@ jobs:
             if [ "$attempt" = 18 ]; then echo '::error::Expected functions did not index'; exit 1; fi
             sleep 15
           done
-          functionsHost=$(az functionapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query defaultHostName -o tsv)
+          functionsHost=$(az functionapp show -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query 'defaultHostName || properties.defaultHostName' -o tsv)
+          test -n "$functionsHost" || { echo '::error::Functions hostname was not returned by Azure'; exit 1; }
           readinessKey=$(az functionapp keys list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" --query functionKeys.default -o tsv)
           test -n "$readinessKey"
           echo "::add-mask::$readinessKey"
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 -H "x-functions-key: $readinessKey" "https://$functionsHost/api/readiness")
-          test "$code" = 200 || { echo "::error::Functions dependency readiness failed: $code"; exit 1; }
+          for attempt in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H "x-functions-key: $readinessKey" "https://$functionsHost/api/readiness" || true)
+            echo "Functions dependency readiness attempt $attempt: HTTP $code"
+            if [ "$code" = 200 ]; then break; fi
+            if [ "$attempt" = 12 ]; then echo "::error::Functions dependency readiness failed: $code"; exit 1; fi
+            sleep 10
+          done
           az webapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_WEBAPP_NAME" -o json > "$RUNNER_TEMP/api-settings.json"
           az functionapp config appsettings list -g "$AZURE_RESOURCE_GROUP" -n "$AZURE_FUNCTIONAPP_NAME" -o json > "$RUNNER_TEMP/functions-settings.json"
           for app in api functions; do
