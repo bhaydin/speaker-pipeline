@@ -36,7 +36,9 @@ public static class CatalogScoringContext
         var history = catalog.Deliveries.Where(d => d.TalkId is not null && talkIds.Contains(d.TalkId))
             .OrderByDescending(d => d.Date).ThenBy(d => d.DeliveryId, StringComparer.Ordinal).Take(24)
             .Select(d => new { d.TalkId, d.EventName, d.EventSeriesId, d.Organizer, d.Date, d.DatePrecision, d.Status, d.City });
-        var examples = feedback.Select(f => new { f.Id, f.EventName, f.Verdict, f.Agree, ReasonCode = f.ReasonCode?.ToString(), Reason = Limit(f.Reason, 400), f.Decision!.FitRationale, MatchedTalks = f.Decision.MatchedTalks.Select(m => m.TalkId) });
+        var examples = feedback.Select(f => new { f.Id, f.EventSlug, f.EventName, AppliesToCurrentEvent = f.EventSlug == ev.Slug,
+            EventDateStart = f.EventSnapshot?.EventDateStart, EventDateEnd = f.EventSnapshot?.EventDateEnd,
+            f.Verdict, f.Agree, ReasonCode = f.ReasonCode?.ToString(), Reason = Limit(f.Reason, 400), f.Decision!.FitRationale, MatchedTalks = f.Decision.MatchedTalks.Select(m => m.TalkId) });
         var data = new
         {
             // The prompt/fingerprint must reflect the full repeat policy, including

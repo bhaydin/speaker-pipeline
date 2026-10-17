@@ -32,6 +32,7 @@ public class ScoringAgentEvalRunner
     public async Task Runs_full_golden_set_and_writes_report()
     {
         var goldens = LoadGoldens();
+        Assert.Equal(ScoringRubric.Version, goldens.RubricVersion);
         Assert.True(goldens.Cases.Count >= 15, $"Expected at least 15 golden cases, got {goldens.Cases.Count}");
 
         var chat = CreateChatClient();
@@ -81,7 +82,7 @@ public class ScoringAgentEvalRunner
         try
         {
             var context = golden.Context?.ToPipelineContext() ?? PipelineContext.Empty;
-            var decision = await agent.ScoreAsync(golden.Event.ToEventRecord(), CanonicalTalks, context);
+            var decision = await agent.ScoreAsync(golden.Event.ToEventRecord(), CanonicalTalks, context, catalog: golden.Catalog, feedback: golden.Feedback);
 
             var passesRecommendation = decision.Recommendation == golden.ExpectedRecommendation
                                        || golden.ExpectedRecommendationAlternates.Contains(decision.Recommendation);
@@ -99,6 +100,8 @@ public class ScoringAgentEvalRunner
             {
                 failureReason = $"missing rationale keywords: {string.Join(",", missing)}";
             }
+            else if (!golden.ExpectedFeedbackIds.Order().SequenceEqual(decision.FeedbackIds.Order()))
+                failureReason = "explicit feedback attribution drift";
 
             return new EvalCaseReport
             {

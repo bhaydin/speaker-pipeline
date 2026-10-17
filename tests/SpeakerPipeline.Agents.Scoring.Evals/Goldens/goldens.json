@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "rubricVersion": "v5",
+  "rubricVersion": "v6",
   "cases": [
     {
       "id": "clear-submit-now-hometown-agentops",
@@ -333,6 +333,43 @@
       "expectedRecommendation": "Pass",
       "expectedRecommendationAlternates": ["Monitor"],
       "rationaleKeywords": ["conflict"]
+    },
+    {
+      "id": "explicit-owner-event-unavailability-with-empty-calendar",
+      "description": "Direct catalog match and empty stored calendar; active feedback for this exact event records a fixed family conflict. Must remain non-actionable with explicit feedback attribution.",
+      "event": {
+        "Slug": "fictional-local-agentops",
+        "Name": "Fictional Local AgentOps Developer Conference",
+        "EventType": "Conference",
+        "Category": "Monitor",
+        "Priority": "Medium",
+        "FocusFit": ["AgentOps"],
+        "EventDateStart": "2027-07-10T00:00:00Z",
+        "CfpDeadline": "2027-04-01T23:59:00Z",
+        "Location": "Milwaukee, WI",
+        "Format": "InPerson",
+        "TravelBurden": "None",
+        "Notes": "AgentOps developer track confirmed; existing deck can be reused."
+      },
+      "catalog": {
+        "generationId": "synthetic-feedback-catalog",
+        "talks": [{
+          "talkId": "canonical-agentops", "currentVersionId": "current-v2",
+          "title": "Production Agent Evals and Tracing", "abstract": "Production .NET agent evals and OpenTelemetry for developers.",
+          "source": { "repository": "synthetic", "path": "talk.yaml", "commitSha": "fixture", "contentHash": "fixture" }
+        }]
+      },
+      "feedback": [{
+        "id": "owner-event-unavailable", "kind": "Feedback", "actor": "synthetic-owner", "atUtc": "2027-03-01T00:00:00Z",
+        "eventSlug": "fictional-local-agentops", "eventName": "Fictional Local AgentOps Developer Conference",
+        "agree": false, "reasonCode": "BadTiming",
+        "reason": "I cannot attend this event on 2027-07-10 because of a fixed family commitment; only these event dates are affected.",
+        "decision": { "eventSlug": "fictional-local-agentops", "recommendation": "SubmitNow", "rationale": "Direct AgentOps topic fit.", "fitScore": 9, "effortScore": 2, "confidenceScore": 8 }
+      }],
+      "expectedRecommendation": "Monitor",
+      "expectedRecommendationAlternates": ["Pass"],
+      "expectedFeedbackIds": ["owner-event-unavailable"],
+      "rationaleKeywords": ["feedback", "family", "availability"]
     }
   ]
 }
