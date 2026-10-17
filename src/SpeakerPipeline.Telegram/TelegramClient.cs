@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +9,12 @@ namespace SpeakerPipeline.Telegram;
 /// <summary>Never log the request URI: the Telegram credential is in its path.</summary>
 public sealed class TelegramClient(HttpClient http, IOptions<TelegramOptions> options, ILogger<TelegramClient> logger)
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        // Telegram accepts an omitted optional reply_markup, but rejects JSON null.
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
     private readonly TelegramOptions _options = options.Value;
 
     public async Task SendMessageAsync(long chatId, string text, CancellationToken ct = default)
