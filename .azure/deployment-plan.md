@@ -1,10 +1,178 @@
-# Production promotion deployment plan
+# Actionable speaker pipeline deployment plan
 
-Status: Deployed
+Status: Validated
 
-The production release, reviewed cleanup, approved scoring repairs and return to
-normal operation have succeeded. All four failure/missed-run alerts are enabled
-with verified routing. First scheduled-run observations remain pending.
+The user authorized completion of the actionable pipeline rollout on 2026-10-16.
+The earlier production promotion is complete and retained below as history; it
+does not establish readiness or completion of this release.
+
+## Current rollout
+
+Recipe: cicd, using successful main CI artifacts through the existing manual
+production release workflow. Additive infrastructure uses the Bicep recipe for
+`infra/data-tables.bicep` only. Keep the existing personal subscription, resource
+groups, identities, locations, hosting plans, URLs, and notification destinations.
+The subscription is explicitly selected on every cloud operation. No azd
+conversion, resource replacement, source-repository writes, or external CFP
+submission is part of this rollout.
+
+All validation checks must pass:
+
+- [x] Core Azure CLI authentication, table-template build, ARM validation, what-if
+- [x] Applicable Azure Policy validation
+- [x] Build, complete unit/integration/evaluation suites, and CI source provenance
+- [x] Static role verification and existing identity dependencies
+- [x] Validation proof recorded and failures resolved
+
+Activation gates:
+
+- [x] Dedicated GitHub App reads only the two intended source repositories
+- [x] Private key stored in personal Key Vault; Functions reference resolves
+- [x] Dashboard Entra identity and credential configured with owner restriction
+- [x] Three additive tables provisioned and included in the API inventory
+- [x] Successful main CI artifacts deployed API first, then Functions
+- [ ] Telegram credential replacement and controlled runtime redaction check
+- [x] Fresh frozen private snapshot, isolated restore and migration rehearsal
+- [x] Production migration, retained-data verification, and authority switch
+- [x] Validated catalog and catalog-aware scoring enabled
+- [ ] GitHub App Push subscription, webhook activation, and actual delivery verified
+- [x] Controlled catalog, scoring, tracker, discovery, email, and operational health
+- [ ] Owner dashboard sign-in and Telegram action/edit/replay
+- [x] Normal writers and delivery restored, except explicitly gated channels
+- [ ] First scheduled behavior observed
+
+Use `docs/actionable-pipeline-rollout.md` for sequencing and rollback constraints.
+After new-schema writes begin, do not switch back to the frozen Events baseline.
+Keep private configuration, data, identity, and telemetry evidence outside Git.
+
+## 7. Validation Proof
+
+Current rollout validation on 2026-10-16 UTC:
+
+- The Azure validation helper completed CLI authentication, compilation, ARM
+  validation, and what-if for `infra/data-tables.bicep` on the explicitly pinned
+  personal subscription. Detailed preview adds Catalog, Operations, and
+  Opportunities, retains the existing six tables, and deletes or replaces
+  nothing. The table-only deployment leaves hosting and alerts untouched.
+- Applicable resource-group and inherited policy query returned no assignments.
+- [Review-fix CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38980390452)
+  passed at commit `59176febbe0864d8413f69081696de176ae0330f`: 542 tests passed,
+  zero failed, and one opt-in live-model test skipped. Real Azurite conditional
+  storage tests and both deterministic evaluation suites ran. Build, Markdown,
+  sample validation, and all infrastructure compilation checks passed.
+- The two review findings were fixed and regression-tested: full-catalog repeat
+  outcomes invalidate scoring cache entries, and repeated notification identities
+  honor retry backoff and active worker leases. The reviewed threads were resolved
+  before merging PR 39. Application deployment still requires successful main CI
+  artifacts and the workflow's checksum/provenance checks; it never rebuilds.
+- Static infrastructure review preserves existing identities and their roles.
+  Live preflight confirmed API Table Data Contributor on the existing data
+  account, Blob Data Contributor on the private artifacts container, and Key
+  Vault Secrets User. Functions has Key Vault access and no business-table role.
+  Personal subscription, existing resource groups, and existing eastus2 hosting
+  are already authorized; no environment, region, or subscription choice changes.
+- Both current host configurations and the prior successful release packages
+  were retained privately. Every package checksum matched its manifest. The
+  dedicated GitHub App's exact two-repository read access and Key Vault reference
+  resolution were verified. Dashboard identity and webhook credentials are staged
+  privately with feature activation still gated.
+
+Historical proof below is not evidence for changed binaries or the new schema.
+
+## Current release evidence
+
+The [actionable release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38981000712)
+succeeded on its second attempt at 2026-10-16 23:36 UTC, using main CI artifacts
+from commit `9ba92ddc25e3ea29934ad9a863c99f6b1d58227f`. Both hosts passed
+authenticated readiness and the workflow preserved every operator control.
+The first attempt stopped before Functions deployment: Oryx found the server
+and Blazor client runtime configurations and started its placeholder host.
+An explicit API startup command restored service without changing the package.
+[PR 40](https://github.com/bhaydin/speaker-pipeline/pull/40) persists that command
+in infrastructure and the release workflow; its complete CI passed before merge.
+
+The three additive tables were provisioned without changing existing tables or
+hosting resources. The dashboard identity is single-tenant, assigned to the
+owner, and its secret reference resolves. Authority, catalog, scoring, and the
+dashboard are enabled. Token replacement, GitHub webhook activation, and
+interactive owner sign-in remain separate gates.
+The configured Google search project currently returns access-denied 403 and
+must remain visible as degraded discovery rather than a healthy empty result.
+
+The fresh frozen nine-table snapshot was restored locally and migrated, with
+retry safety and both old/new schema recovery verified. Production migration
+copied all 38 opportunities; retry created no duplicates. Every original typed
+property, ETag, and timestamp remained unchanged in the other eight tables,
+including all four legacy talks and 458 notification records. All cards retain
+migration-pinned placement and independent suppression. API authority is now
+enabled, authenticated reads expose 38 records with ETags, and maintenance
+administration is closed. Never return authority to the stale Events baseline.
+
+The owner dashboard shell is live; anonymous data reads return 401, signed-out
+session checks expose no request token, and the Entra challenge uses the exact
+HTTPS callback with PKCE. Interactive owner sign-in remains unverified.
+
+The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
+and eight public artifacts from the two read-only repositories. An unchanged
+second reconciliation preserved that generation. Both runs succeeded with zero
+model extraction calls; uncertain deliveries and unlinked artifacts remain in
+review. The receiver accepted a valid signed ping and rejected an invalid one,
+without enqueueing work. This does not establish GitHub-side webhook activation.
+Catalog worker and nightly fallback are enabled. Scoring is configured for the
+validated catalog with explicit candidate, prompt, and completion ceilings.
+
+Two bounded scoring batches completed 36 decisions with no errors. All matched
+talk/version references, decision history, and input provenance passed review;
+the original 38 cards retained their placement, suppression, and event facts.
+The second batch reused the first 20 cached decisions. A subsequent snapshot
+reused all 36 decisions with zero model tokens, and its email delivery and outbox
+completion were confirmed. Model usage across the two scoring batches was
+111,955 input and 21,974 completion tokens; pricing remains explicitly unknown.
+
+Bounded discovery persisted two new opportunities and a degraded run, including
+the search provider's 403. Both the incident and discovery change emails have
+confirmed delivery receipts. The manual HTTP response failed after that work;
+the same invocation was reconciled without retrying its writes or notifications.
+The Functions serializer treated count fields and result arrays as duplicate
+names. [PR 41](https://github.com/bhaydin/speaker-pipeline/pull/41) gives the counts
+distinct names and adds three regression cases using the actual worker serializer.
+
+The [response-fix release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38985592586)
+succeeded at 2026-10-17 00:26 UTC, deploying commit
+`fca8faf3dfd641e09b71d9c555217c0ad5e5e71d` from
+[successful main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38985360245).
+All 545 tests passed, with one opt-in live-model test skipped. Both hosts passed
+authenticated readiness and all operational switches were preserved. The bounded
+post-release discovery check returned HTTP 200, changed no data, and created no
+new delivery or outbox records. Its repeated provider failures retained the
+existing degraded incident without resending the alert.
+
+The subsequent tracker run examined 40 opportunities, changed none, and sent
+nothing. Its one actionable deadline already had a matching email notification
+in the retained ledger, so the channel was correctly skipped before creating an
+outbox entry. The two newly discovered records follow the pipeline, with no
+fabricated user placement, submission, decision, or human action history.
+
+At 2026-10-17 00:28 UTC, after response-fix verification, the 12 non-Telegram
+functions and email delivery were restored, including normal discovery limits,
+health/retry timers, ingestion,
+and catalog reconciliation. API authority and catalog-aware scoring remain
+enabled; maintenance remains closed. Telegram delivery and its receiver stay
+paused pending credential replacement. Scheduled-run observation remains open.
+
+Telemetry from the initial actionable release through 2026-10-17 00:07 UTC contained 9,868
+rows and zero matches for the checked credential patterns. This interval contains
+real API, model, and email activity but no Telegram traffic; it does not replace
+the required post-rotation Telegram send/edit/callback check.
+
+Final verification after the response-fix release confirmed both deployed commit
+identities, authenticated readiness, and maintenance returning 404. There were
+no running operations, pending outbox items, or failed/uncertain deliveries.
+The post-release telemetry sample contained 592 rows, zero credential-pattern
+matches, zero exceptions, and one successful discovery completion. Telegram
+traffic remains absent while that channel is paused.
+
+## Historical production promotion
 
 ## Intent and authorization
 
@@ -65,7 +233,7 @@ failure, pause writers and delivery before reopening operator-only maintenance.
 Restore only affected data and redeploy previous artifacts when required. Never
 replay notifications. All 23 retained recovery artifacts passed hash verification.
 
-## 7. Validation Proof
+## Historical validation proof
 
 Validation performed on 2026-10-16 (UTC), using the explicitly discovered existing
 subscription rather than the CLI default:

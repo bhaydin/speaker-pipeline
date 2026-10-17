@@ -23,6 +23,7 @@ records; every data endpoint requires authentication.
 | API | `Storage__OpportunitiesProvisioned=true` | After creating Opportunities; includes it in snapshots/readiness |
 | API | `Storage__OpportunitiesEnabled=true` | Only after frozen copy and restore rehearsal pass |
 | Functions | `Pipeline__OpportunitiesEnabled=true` | After the API authority switch; enables shared-state scoring and callbacks |
+| API | `Catalog__Enabled=true` | With catalog activation; requires validated catalog matches for actionable decisions |
 | Functions | `Catalog__Enabled=true` | After the read-only GitHub App is installed and configured |
 | Functions | `ScoringAgent__CatalogEnabled=true` | After first validated generation and model evaluation |
 | API | `Dashboard__Enabled=true` | After authority switch and owner authentication setup |
@@ -154,7 +155,15 @@ Observed fit anchors were 10, 5, 1, 9, and 10 respectively; preparation effort w
 2 for reuse and 8 for new workshop material. This is evidence for those cases,
 not a claim that all future decisions are calibrated.
 
-Production acceptance still requires owner sign-in, the private GitHub App,
-credential replacement, real-data migration rehearsal/cutover, actual channel
-delivery, and the next scheduled observations. No organizer outreach, CFP
-submission, publishing, or source-repository writing is part of this release.
+The current production cutover completed the isolated restore rehearsal,
+opportunity migration, authority switch, and read-only catalog publication.
+Two bounded scoring batches produced 36 validated catalog-backed decisions;
+an unchanged snapshot reused all decisions with no model calls and confirmed
+email delivery. See the [deployment record](../.azure/deployment-plan.md) for
+release provenance and current gates.
+
+Acceptance still requires interactive owner sign-in, GitHub Push subscription
+and actual webhook delivery, Telegram credential replacement and real callback
+editing/replay, and the next scheduled observations. Preserve any explicit pause
+until its own acceptance gate passes. No organizer outreach, CFP submission,
+publishing, or source-repository writing is part of this release.
