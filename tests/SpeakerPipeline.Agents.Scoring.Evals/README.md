@@ -59,7 +59,7 @@ test bin directory and (in CI) published as a workflow artifact.
 
 The catalog calibration suite uses the real configured Foundry provider only
 when explicitly enabled. Set `SCORING_EVALS_LIVE=1`,
-`ScoringAgent__Endpoint`, `ScoringAgent__ModelName`, and explicit personal-tenant
+`ScoringAgent__Endpoint`, `ScoringAgent__ModelName`, and an explicit deployment-tenant
 `SCORING_EVALS_TENANT_ID`, then run
 `dotnet test tests/SpeakerPipeline.Agents.Scoring.Evals --filter CatalogLiveEvaluation`.
 Authentication uses `AzureCliCredential` restricted to that tenant; do not put secrets in fixtures.

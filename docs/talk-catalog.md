@@ -41,8 +41,8 @@ Create a personal GitHub App installed on **only** `bhaydin/bhaydin-talks` and
 `bhaydin/Presentations`. Grant repository Contents **read-only** and Metadata
 read-only, subscribe to push events, and grant no repository write permissions.
 Configure `Catalog:GitHub:AppId`, `InstallationId`, and `PrivateKeyPem` on the
-Functions host. Store the private key in the personal tenant's Key Vault and
-use an app-setting Key Vault reference; the host's managed identity needs only
+Functions host. Store the private key in the existing hosting environment's Key
+Vault and use an app-setting Key Vault reference; the host's managed identity needs only
 secret retrieval for that secret. Catalog synchronization always uses the
 repository-scoped App installation token; local tests use synthetic sources.
 
@@ -197,7 +197,7 @@ feedback.
 
 On October 16, 2026, a five-request **real Foundry gpt-5-mini** evaluation of
 the final v5 calibration rubric used
-synthetic fixtures and the explicitly selected personal tenant. It never
+synthetic fixtures and the explicitly selected deployment tenant. It never
 posted decisions to the tracker. Results:
 
 | Synthetic case | Fit | Effort |

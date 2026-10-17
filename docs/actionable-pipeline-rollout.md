@@ -38,18 +38,25 @@ the automatically reapplied Functions settings file.
 See [notification operations](actionable-notifications.md) for delivery,
 quiet-hour, health, credential rotation, and incident settings. See
 [catalog operations](talk-catalog.md) for GitHub App installation, webhook,
-model limits, and reviewed source corrections. All app credentials use personal
-tenant Key Vault references. Do not use a repository PAT as the production
-catalog credential.
+model limits, and reviewed source corrections. App credentials use references
+to the existing hosting environment's Key Vault. Do not use a repository PAT as
+the production catalog credential.
 
 ## Owner dashboard setup
 
-Create a single-tenant Entra web application in the personal tenant. Register
-`https://<existing-api-host>/signin-dashboard` as its web redirect URI. It needs
-OpenID Connect sign-in only; the dashboard does not call Microsoft Graph.
-Configure the API with:
+The owner authorized retaining the existing hosting and machine API
+authentication while using the owner's personal tenant for dashboard sign-in.
+Hosting and dashboard identity are separate; the hosting tenant must not be
+assumed to be the owner's personal tenant.
 
-- `Dashboard__TenantId`: the personal tenant ID.
+Create a single-tenant Entra web application in the confirmed personal tenant.
+Register `https://<existing-api-host>/signin-dashboard` as its web redirect URI.
+Configure only the basic `openid` and `profile` sign-in scopes; the dashboard
+does not call Microsoft Graph. Require user assignment, assign the exact owner,
+and grant consent for those scopes to that owner only. Store the app credential
+in the existing hosting environment's Key Vault. Configure the API with:
+
+- `Dashboard__TenantId`: the confirmed personal tenant ID.
 - `Dashboard__OwnerObjectId`: the exact owner's object ID in that tenant.
 - `Dashboard__ClientId`: the web application client ID.
 - `Dashboard__ClientSecret`: a Key Vault reference to its client credential.
@@ -175,12 +182,24 @@ successfully, with both hosts passing authenticated readiness. Two queued real
 `/status` commands then succeeded. A controlled scoring run reused 36 decisions,
 scored two new opportunities, and delivered three Telegram parts and one email
 with completed durable receipts. Post-readiness telemetry showed no handler
-failures or matches for the checked credential patterns. Callback state,
-message editing, and replay verification remain pending.
+failures or matches for the checked credential patterns. The owner verified
+that Drop opened the reason picker and Cancel restored the buttons. Read-only
+verification confirmed all 40 opportunities and 76 history records were
+unchanged, the message version changed, the picker cleared, and its lock was
+released. No real Drop was committed. Mutation and replay behavior are covered
+by regression tests; this live check verified the picker and Cancel flow only.
 
-Acceptance still requires interactive owner sign-in and the remaining Telegram
-callback checks. An actual source push and the first scheduled runs remain
-future observations; GitHub configuration and authenticated delivery are
-verified. Preserve any explicit pause until its own acceptance gate passes. No
+Owner dashboard sign-in reached an administrator approval screen in the wrong
+tenant. The owner confirmed personal-tenant authentication on unchanged hosting.
+That configuration is now corrected, its Key Vault reference resolves, and both
+hosts pass readiness; unrelated settings and machine API authentication were
+preserved. The account-chooser release succeeded, and the public login redirect
+uses the confirmed personal tenant and client with PKCE and an account chooser.
+Transient API startup errors and probe timeouts recovered; their cause is not
+established. Interactive owner sign-in remains unverified. Retirement of the
+superseded dashboard registration and credential remains pending owner
+acceptance. An actual source push and the first scheduled runs remain future
+observations; GitHub configuration and authenticated delivery are verified.
+Preserve any explicit pause until its own acceptance gate passes. No
 organizer outreach, CFP submission, publishing, or source-repository writing is
 part of this release.
