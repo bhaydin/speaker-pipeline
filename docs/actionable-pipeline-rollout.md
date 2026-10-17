@@ -196,10 +196,14 @@ hosts pass readiness; unrelated settings and machine API authentication were
 preserved. The account-chooser release succeeded, and the public login redirect
 uses the confirmed personal tenant and client with PKCE and an account chooser.
 Transient API startup errors and probe timeouts recovered; their cause is not
-established. Interactive owner sign-in remains unverified. Retirement of the
-superseded dashboard registration and credential remains pending owner
-acceptance. An actual source push and the first scheduled runs remain future
-observations; GitHub configuration and authenticated delivery are verified.
+established. On October 17, the owner confirmed that the personal account loads
+the board. The superseded service principal and exact old credential version
+were then disabled without deletion; machine authentication and the current
+dashboard configuration were preserved. The October 17 daily discovery/tracker
+and nightly catalog runs were observed. Discovery remained degraded by source
+failures and delivered the expected summaries; tracker and catalog had no new
+changes. Monday weekly scoring and health, plus an actual source push, remain
+future observations. GitHub configuration and authenticated delivery are verified.
 Preserve any explicit pause until its own acceptance gate passes. No
 organizer outreach, CFP submission, publishing, or source-repository writing is
 part of this release.

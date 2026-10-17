@@ -57,9 +57,10 @@ dependencies and a Functions-to-API span were observed without new failures or
 exceptions. No notification calls or notification-log writes were recorded during
 the maintenance interval from 16:33:31 to 18:04:50 UTC.
 
-The first scheduled-run observations remain open: Discovery on 2026-10-17 at
-05:00 UTC, Tracker at 05:30 UTC, and Scoring on 2026-10-19 at 06:00 UTC. Verify
-successful completion telemetry and any expected deduplicated notifications.
+The October 17 daily discovery and tracker runs were observed under the later
+actionable release; see the [current deployment record](../.azure/deployment-plan.md#current-release-evidence)
+for outcomes and delivery evidence. Weekly scoring and health on October 19
+remain to be observed.
 Hashes were verified for 23 private recovery artifacts. Retain the packages,
 configuration, snapshots, manifests and journals through at least 2026-11-16 and
 until these acceptance observations are resolved.

@@ -21,8 +21,9 @@ sign-in uses the owner's personal tenant. The earlier description of the hosting
 subscription and Key Vault as personal was incorrect. This correction authorizes
 the dashboard identity configuration only; it does not relocate resources or
 change machine API authentication. The personal dashboard identity configuration
-is corrected and the account-chooser release succeeded. Interactive owner
-sign-in and retirement of the superseded dashboard registration remain pending.
+is corrected and the account-chooser release succeeded. The owner confirmed the
+board loads with the personal account, and the superseded service principal and
+exact credential version have been disabled.
 
 All validation checks must pass:
 
@@ -47,11 +48,12 @@ Activation gates:
 - [x] GitHub App and installation Push subscription, webhook activation, and actual ping delivery verified
 - [ ] Future observation: actual source push and resulting catalog reconciliation
 - [x] Controlled catalog, scoring, tracker, discovery, email, and operational health
-- [ ] Interactive owner dashboard sign-in
-- [ ] Superseded dashboard registration and credential retired after owner acceptance
+- [x] Owner confirmed personal dashboard sign-in and board load
+- [x] Superseded service principal and exact credential version disabled after owner acceptance
 - [x] Telegram Drop/Cancel picker and message editing verified without business-state changes
 - [x] Normal writers and delivery restored, except explicitly gated channels
-- [ ] First scheduled behavior observed
+- [x] Daily discovery/tracker and nightly catalog behavior observed
+- [ ] Monday weekly scoring and health behavior observed
 
 Use `docs/actionable-pipeline-rollout.md` for sequencing and rollback constraints.
 After new-schema writes begin, do not switch back to the frozen Events baseline.
@@ -104,8 +106,8 @@ Personal dashboard correction predeployment proof on 2026-10-17 UTC:
   passed for commit `66a021e03783a4b6098fb934ad58781e36ea9d05`: 558 tests passed,
   zero failed, and one opt-in live-model test skipped. This includes 88 API
   tests, 81 storage tests with real Azurite, and both deterministic evaluation
-  suites. The successful deployment of these tested artifacts is recorded below;
-  interactive owner sign-in remains unverified.
+  suites. The successful deployment and subsequent owner confirmation are
+  recorded below.
 
 ## Current release evidence
 
@@ -123,10 +125,10 @@ The three additive tables were provisioned without changing existing tables or
 hosting resources. The initial dashboard registration was single-tenant and its
 secret reference resolved, but the interactive check exposed that it targeted
 the hosting tenant instead of the confirmed personal owner identity. The
-personal identity configuration is now corrected, pending interactive verification. Authority,
-catalog, scoring, and the dashboard are enabled. Telegram credential replacement
-and GitHub webhook activation have since passed the checks below; interactive
-owner sign-in remains open.
+personal identity configuration is now corrected, and the owner confirmed the
+board loads with the personal account. Authority, catalog, scoring, and the
+dashboard are enabled. Telegram credential replacement and GitHub webhook
+activation have also passed the checks below.
 The configured Google search project currently returns access-denied 403 and
 must remain visible as degraded discovery rather than a healthy empty result.
 
@@ -141,10 +143,10 @@ administration is closed. Never return authority to the stale Events baseline.
 
 The owner dashboard shell is live; anonymous data reads return 401, signed-out
 session checks expose no request token, and the Entra challenge uses the exact
-HTTPS callback with PKCE. Interactive owner sign-in reached an administrator
+HTTPS callback with PKCE. The initial owner sign-in reached an administrator
 approval screen in the wrong tenant. The personal identity configuration and
-account-chooser release are now verified; interactive owner sign-in remains
-pending.
+account-chooser release are now verified, followed by owner confirmation that
+the personal account loads the board.
 
 The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
 and eight public artifacts from the two read-only repositories. An unchanged
@@ -274,11 +276,29 @@ the confirmed personal tenant and client with PKCE and the account chooser.
 Transient API startup HTTP 500 responses and probe timeouts recovered before
 final verification; their underlying cause has not been established.
 
-Interactive owner sign-in remains unverified. Retirement of the superseded
-dashboard registration and credential is prepared but remains pending owner
-acceptance; the current hosts no longer reference them. Actual source push and
-first scheduled-run observations also remain open. The GitHub configuration and
-authenticated delivery checks have passed.
+On 2026-10-17 at 14:30 UTC, the owner confirmed that the personal account loads
+the board, corroborated by callback and session activity without recorded errors.
+At 14:31 UTC, the superseded service
+principal and exact old Key Vault secret version were disabled without deleting
+either resource. Machine configuration remained unchanged, and the current
+dashboard configuration and credential reference passed verification. Both hosts
+remained ready, with normal triggers, Telegram, channels, and operator controls
+preserved.
+
+The October 17 scheduled runs were observed: Discovery at 05:00 UTC considered
+65 candidates and added 27 opportunities, completing Degraded with ten Google
+403 responses, one empty search, and two confs.tech 404 responses. Tracker at
+05:30 UTC considered 67 opportunities with no changes, issues, or new routine or
+deadline notifications. Catalog at 08:02 UTC retained its unchanged generation
+of 41 talks and 53 engagements with zero extraction calls or tokens.
+
+Three new deliveries were confirmed: Telegram and email discovery summaries,
+plus the first Telegram copy of the existing incident. The earlier incident
+email receipt was reused. No runs, deliveries, or outbox work remained running,
+failed, uncertain, or pending. Both Telegram sends occurred during quiet hours;
+the wire-level notification flag is not retained in receipts. Credential checks
+found zero matches across 32,319 telemetry rows. Monday weekly scoring and health
+on October 19, and a real source push, remain future observations.
 
 ## Historical production promotion
 
@@ -331,7 +351,8 @@ notification destinations and schedules. Disable maintenance access afterward.
 - [x] Retire obsolete deployment resources and unnecessary permissions
 - [x] Close maintenance administration and restore original writer/delivery controls
 - [x] Enable all four failure/missed-run alerts with verified routing
-- [ ] Observe the first daily and weekly scheduled runs and expected delivery
+- [x] Observe the first daily scheduled runs and expected delivery
+- [ ] Observe the first weekly scheduled runs and expected delivery
 
 ## Rollback
 
@@ -426,7 +447,6 @@ directory. The predeployment validation above did not change live business data.
   18:04:50 UTC had no recorded notification calls or notification-log writes.
 
 All four failure/missed-run alerts were enabled and reread at 18:19:00 UTC,
-each with the verified action group. The first scheduled-run observations are
-Discovery on 2026-10-17 at 05:00 UTC, Tracker at 05:30 UTC, and Scoring on
-2026-10-19 at 06:00 UTC. Their successful completion telemetry and any expected
-deduplicated delivery remain to be observed.
+each with the verified action group. Discovery and Tracker were observed on
+2026-10-17 under the later actionable release, as recorded above. Weekly scoring
+and health on October 19 remain to be observed.
