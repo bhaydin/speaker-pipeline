@@ -75,6 +75,35 @@ public sealed class CatalogTests
         Assert.Single(removed.Versions);
     }
 
+    [Theory]
+    [InlineData(null, null, null, "unknown", true)]
+    [InlineData("not-a-date", null, null, "unknown", true)]
+    [InlineData(null, "day", null, "unknown", true)]
+    [InlineData("2026-02-30", "day", null, "unknown", true)]
+    [InlineData("2026-01-01", "year", "2026-01-01", "year", true)]
+    [InlineData("2026-10-01", "month", "2026-10-01", "month", true)]
+    [InlineData("2026-10-17", null, "2026-10-17", "day", false)]
+    [InlineData("2026-01-01", "day", "2026-01-01", "day", false)]
+    public void Delivery_dates_preserve_uncertainty_without_losing_identity_or_source(
+        string? date, string? precision, string? expectedDate, string expectedPrecision, bool needsReview)
+    {
+        var source = File("engagements/2026/summit/engagement.yaml",
+            $"id: summit\ntalk_id: agentops\nevent: Summit\nstatus: completed\ndate: {date}\ndate_precision: {precision}\n");
+        var catalog = Build(Private(source));
+        var delivery = Assert.Single(catalog.Deliveries);
+
+        Assert.Equal("summit", delivery.DeliveryId);
+        Assert.Equal("agentops", delivery.TalkId);
+        Assert.Equal("completed", delivery.Status);
+        Assert.Equal(expectedDate is null ? (DateTimeOffset?)null : DateTimeOffset.Parse(expectedDate + "T00:00:00Z"), delivery.Date);
+        Assert.Equal(expectedPrecision, delivery.DatePrecision);
+        Assert.Equal(needsReview, delivery.NeedsReview);
+        Assert.Equal(needsReview ? 0 : 1, catalog.Deliveries.Count(d => d.Status == "completed" && !d.NeedsReview));
+        Assert.Equal(delivery, Assert.Single(catalog.SourceDeliveries));
+        Assert.Equal(source.Path, delivery.Source.Path);
+        Assert.Equal(source.BlobSha, delivery.Source.ContentHash);
+    }
+
     [Fact]
     public void Stub_does_not_invent_abstract_and_public_artifacts_do_not_invent_deliveries()
     {

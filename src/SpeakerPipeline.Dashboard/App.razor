@@ -10,10 +10,10 @@
             <button class="@TabClass("catalog")" @onclick='() => SetTab("catalog")'><span>▤</span> Talk catalog <small>@catalog.Talks.Count</small></button>
             <button class="@TabClass("health")" @onclick='() => SetTab("health")'><span>◉</span> Pipeline health</button>
         </nav>
-        <div class="rail-bottom"><span class="eyebrow">YOUR WORKSPACE</span><p>Milwaukee → anywhere</p><small>Chicago as a second departure point</small>@if (session?.Authenticated == true) { <button class="text-button" @onclick="SignOut">Sign out ↗</button> }</div>
+        <div class="rail-bottom"><span class="eyebrow">YOUR WORKSPACE</span><p>Milwaukee → anywhere</p><small>Chicago as a second departure point</small></div>
     </aside>
     <main>
-        <header class="topbar"><span class="eyebrow">SPEAKING / @TabTitle</span><span class="owner"><span class="owner-dot"></span>@(session?.Name ?? "Your private workspace")</span></header>
+        <header class="topbar"><span class="eyebrow">SPEAKING / @TabTitle</span><div class="workspace-account"><span class="owner"><span class="owner-dot"></span>@(session?.Name ?? "Your private workspace")</span>@if (session?.Authenticated == true) { <button class="text-button" @onclick="SignOut">Sign out ↗</button> }</div></header>
         @if (loading)
         {
             <div class="empty-state" role="status"><span class="eyebrow">GETTING THINGS READY</span><h1>Opening your pipeline.</h1><p>Loading opportunities and talk history.</p></div>
@@ -50,7 +50,10 @@
                                         @if (item.LatestDecision is { } decision) { <p class="rationale">@(decision.FitRationale ?? decision.Rationale)</p> }
                                         else { <p class="rationale muted">@(item.Event.NextAction ?? "Awaiting a grounded recommendation.")</p> }
                                         @if (item.LatestDecision?.MatchedTalks.FirstOrDefault() is { } match) { <div class="talk-chip">▤ @match.Title</div> }
-                                        @if (HasNewVerdict(item)) { <p class="verdict-badge">Pipeline now says @item.SystemVerdict</p> }
+                                        @if (HasNewVerdict(item))
+                                        {
+                                            <p class="verdict-badge"><strong>Pipeline now says @item.SystemVerdict</strong>@if (!string.IsNullOrWhiteSpace(item.LatestDecision?.ChangeReason)) { <span class="verdict-reason">@item.LatestDecision.ChangeReason</span> }</p>
+                                        }
                                         <footer><span>@(item.PlacementSource switch { PlacementSource.Pipeline => "Pipeline managed", PlacementSource.Migration => "Preserved placement", _ => "Your placement" })</span>@if (item.IsSnoozed(now)) { <span>Snoozed until @LocalDate(item.SnoozedUntilUtc)</span> } else if (item.DoNotResurface) { <span>Suppressed</span> } else { <span>Open ↗</span> }</footer>
                                     </button>
                                 </article>
@@ -124,7 +127,7 @@
             else if (current.PlacementSource != PlacementSource.Pipeline) { <button class="text-button" disabled="@busy" @onclick="() => Act(OpportunityAction.FollowPipeline)">Follow pipeline placement again</button> }
         </section>
         <section class="detail-section"><h3>Your notes</h3><textarea rows="4" maxlength="8000" @bind="notes" aria-label="Private opportunity notes" placeholder="Contacts, ideas, and anything you want to remember."></textarea><button class="button secondary" disabled="@busy" @onclick="SaveNotes">Save notes</button></section>
-        <section class="detail-section"><h3>Verdict and action history</h3>@if (history.Count == 0) { <p class="muted">No recorded history yet.</p> }@foreach (var entry in history.OrderByDescending(h => h.AtUtc)) { <div class="history-row"><span class="eyebrow">@entry.Kind · @CentralTime(entry.AtUtc)</span><p>@if (entry.PreviousVerdict is not null) { <span>@entry.PreviousVerdict → </span> }@(entry.Verdict?.ToString() ?? entry.Status?.ToString())</p><p>@if (entry.ReasonCode is { } code) { <strong>@ReasonLabel(code). </strong> }@(entry.Reason ?? entry.Decision?.Rationale)</p><DecisionHistory Entry="entry" />@if (ActiveFeedback(entry)) { <div class="action-row"><button class="text-button" disabled="@busy" @onclick="() => CorrectFeedback(entry)">Correct feedback</button><button class="text-button" disabled="@busy" @onclick="() => RetireFeedback(entry)">Retire feedback</button></div> }</div> }</section>
+        <section class="detail-section"><h3>Verdict and action history</h3>@if (history.Count == 0) { <p class="muted">No recorded history yet.</p> }@foreach (var entry in history.OrderByDescending(h => h.AtUtc)) { <div class="history-row"><span class="eyebrow">@entry.Kind · @CentralTime(entry.AtUtc)</span>@if (entry.Kind == "Feedback" && entry.Actor is not ("pipeline" or "migration") && entry.Agree is { } agreed) { <p><strong>@(agreed ? "Agreed with verdict" : "Disagreed with verdict")</strong></p> }<p>@if (entry.PreviousVerdict is not null) { <span>@entry.PreviousVerdict → </span> }@(entry.Verdict?.ToString() ?? entry.Status?.ToString())</p><p>@if (entry.ReasonCode is { } code) { <strong>@ReasonLabel(code). </strong> }@(entry.Reason ?? entry.Decision?.Rationale)</p><DecisionHistory Entry="entry" />@if (ActiveFeedback(entry)) { <div class="action-row"><button class="text-button" disabled="@busy" @onclick="() => CorrectFeedback(entry)">Correct feedback</button><button class="text-button" disabled="@busy" @onclick="() => RetireFeedback(entry)">Retire feedback</button></div> }</div> }</section>
     </section></div>
 }
 
