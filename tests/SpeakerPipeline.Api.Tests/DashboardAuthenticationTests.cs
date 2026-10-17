@@ -100,6 +100,7 @@ public sealed class DashboardAuthenticationTests
         var query = QueryHelpers.ParseQuery(authorization.Query);
         Assert.Equal($"{expectedScheme}://pipeline.example.org/signin-dashboard", query["redirect_uri"].ToString());
         Assert.Equal("S256", query["code_challenge_method"].ToString());
+        Assert.Equal("select_account", query["prompt"].ToString());
         if (forwarding)
         {
             var options = app.Services.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value;
