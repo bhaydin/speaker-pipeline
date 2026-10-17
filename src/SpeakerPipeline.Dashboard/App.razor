@@ -10,10 +10,10 @@
             <button class="@TabClass("catalog")" @onclick='() => SetTab("catalog")'><span>▤</span> Talk catalog <small>@catalog.Talks.Count</small></button>
             <button class="@TabClass("health")" @onclick='() => SetTab("health")'><span>◉</span> Pipeline health</button>
         </nav>
-        <div class="rail-bottom"><span class="eyebrow">YOUR WORKSPACE</span><p>Milwaukee → anywhere</p><small>Chicago as a second departure point</small>@if (session?.Authenticated == true) { <button class="text-button" @onclick="SignOut">Sign out ↗</button> }</div>
+        <div class="rail-bottom"><span class="eyebrow">YOUR WORKSPACE</span><p>Milwaukee → anywhere</p><small>Chicago as a second departure point</small></div>
     </aside>
     <main>
-        <header class="topbar"><span class="eyebrow">SPEAKING / @TabTitle</span><span class="owner"><span class="owner-dot"></span>@(session?.Name ?? "Your private workspace")</span></header>
+        <header class="topbar"><span class="eyebrow">SPEAKING / @TabTitle</span><div class="workspace-account"><span class="owner"><span class="owner-dot"></span>@(session?.Name ?? "Your private workspace")</span>@if (session?.Authenticated == true) { <button class="text-button" @onclick="SignOut">Sign out ↗</button> }</div></header>
         @if (loading)
         {
             <div class="empty-state" role="status"><span class="eyebrow">GETTING THINGS READY</span><h1>Opening your pipeline.</h1><p>Loading opportunities and talk history.</p></div>
@@ -50,7 +50,10 @@
                                         @if (item.LatestDecision is { } decision) { <p class="rationale">@(decision.FitRationale ?? decision.Rationale)</p> }
                                         else { <p class="rationale muted">@(item.Event.NextAction ?? "Awaiting a grounded recommendation.")</p> }
                                         @if (item.LatestDecision?.MatchedTalks.FirstOrDefault() is { } match) { <div class="talk-chip">▤ @match.Title</div> }
-                                        @if (HasNewVerdict(item)) { <p class="verdict-badge">Pipeline now says @item.SystemVerdict</p> }
+                                        @if (HasNewVerdict(item))
+                                        {
+                                            <p class="verdict-badge"><strong>Pipeline now says @item.SystemVerdict</strong>@if (!string.IsNullOrWhiteSpace(item.LatestDecision?.ChangeReason)) { <span class="verdict-reason">@item.LatestDecision.ChangeReason</span> }</p>
+                                        }
                                         <footer><span>@(item.PlacementSource switch { PlacementSource.Pipeline => "Pipeline managed", PlacementSource.Migration => "Preserved placement", _ => "Your placement" })</span>@if (item.IsSnoozed(now)) { <span>Snoozed until @LocalDate(item.SnoozedUntilUtc)</span> } else if (item.DoNotResurface) { <span>Suppressed</span> } else { <span>Open ↗</span> }</footer>
                                     </button>
                                 </article>
