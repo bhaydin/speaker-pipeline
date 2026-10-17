@@ -109,7 +109,59 @@ Personal dashboard correction predeployment proof on 2026-10-17 UTC:
   suites. The successful deployment and subsequent owner confirmation are
   recorded below.
 
+Audit-fix predeployment proof on 2026-10-17 UTC:
+
+- Fresh CLI authentication, Bicep compilation, ARM validation, and what-if for
+  the table-only template passed at 15:13 UTC. What-if reported zero creates,
+  modifications, or deletes; no infrastructure deployment was applied. Both
+  applicable resource-group policy queries, including inherited assignments,
+  returned zero assignments.
+- Read-only preflight verified both hosts ready, every operational control in
+  its intended state, all 22 Key Vault references resolved, and the existing
+  identity bindings and required roles intact. Functions still has no business
+  storage role. The previous successful release artifact was retained privately;
+  all four checksums matched its successful main-CI manifest.
+- [Combined audit-fix CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/39044359526)
+  passed at `0f209a0bd8e5b1d9faecf967035ce9f71f18fcf1`: 588 tests passed,
+  zero failed, and two opt-in live-model tests skipped in CI. This includes real
+  Azurite concurrency, original-result replay, restoration, callback recovery,
+  demotion reasons, and both deterministic agent evaluation suites.
+- The published Blazor client from that exact source passed browser checks at
+  320, 390, and 1440 pixels: eleven opportunity commands, three catalog review
+  forms, conditional and CSRF headers, current-state refresh, stale-edit handling,
+  agreement labels, pinned-verdict explanations, v6 effort labels, and sign-out.
+  No page or dialog overflow or browser errors were observed. Synthetic API
+  fixtures establish client behavior; separate API/storage tests establish
+  server semantics, and the owner's prior confirmation establishes real sign-in.
+- Nine bounded actual-model v6 cases passed before rubric promotion. Evidence,
+  usage, and limitations are recorded in the actionable rollout guide. This
+  source was merged without a tree change; deployment still requires the
+  successful main-CI artifact and its provenance/checksum checks.
+
 ## Current release evidence
+
+The [audit-fix release](https://github.com/bhaydin/speaker-pipeline/actions/runs/39044759784)
+succeeded at 2026-10-17 15:26 UTC, deploying commit
+`0d682ef0d398fd9c086b0c98f717469570280d35` from
+[successful main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/39044546024).
+All 588 tests passed, with two billed model evaluations intentionally skipped in
+CI and separately verified as described above. The release includes current
+recommendation counts in `/status`, immutable command results with explicit
+client refresh, demotion reasons, mobile sign-out and verdict explanations,
+feedback agreement labels, conservative date precision, and the v6 availability
+rubric. Existing historical decisions retain their original rubric version.
+
+Independent read-only checks at 15:27 UTC confirmed both hosts ready, all thirteen
+trigger controls and operational limits unchanged, both notification channels
+enabled, maintenance disabled, and all 22 Key Vault references resolved. Personal
+dashboard identity bindings and existing managed identities/roles remained valid;
+Entra sign-in records also corroborated the owner's successful personal login.
+Functions has no business-storage role. The exact release packages and prior
+successful packages are retained privately with verified checksums. Telemetry
+from deployment through 15:27 UTC contained 639 rows and zero matches for the
+checked credential patterns. This bounded observation does not establish future
+scheduled-run behavior. Monday weekly scoring and health, and actual source-push
+reconciliation, remain open acceptance observations.
 
 The [actionable release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38981000712)
 succeeded on its second attempt at 2026-10-16 23:36 UTC, using main CI artifacts
