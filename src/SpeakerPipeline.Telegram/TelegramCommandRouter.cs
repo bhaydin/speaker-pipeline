@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SpeakerPipeline.Core;
+using SpeakerPipeline.Notifications;
 
 namespace SpeakerPipeline.Telegram;
 
@@ -89,28 +90,45 @@ public sealed class TelegramCommandRouter(
             .Select(g => $"{g.Key} {g.Count()}")
             : current.GroupBy(o => o.Status).OrderBy(g => g.Key).Select(g => $"{g.Key} {g.Count()}");
 
-        var actionable = events
-            .Where(e => e.Category is EventCategory.SubmitNow or EventCategory.Outreach)
-            .Where(e => !e.DoNotResurface && (current is null || current.Any(o => o.Slug == e.Slug && !o.IsSnoozed(DateTimeOffset.UtcNow))))
-            .OrderBy(e => e.CfpDeadline ?? DateTimeOffset.MaxValue)
+        var now = DateTimeOffset.UtcNow;
+        var recommendations = current?.Select(o => (Opportunity: o,
+            Verdict: OpportunityNotificationPolicy.SnapshotVerdict(o, now))).ToArray();
+        var actionable = (recommendations is null
+            ? events.Where(e => (e.Category is EventCategory.SubmitNow or EventCategory.Outreach) && !e.DoNotResurface)
+                .Select(e => (Event: e, Verdict: e.Category == EventCategory.SubmitNow ? Recommendation.SubmitNow : Recommendation.Outreach,
+                    UserStatus: (OpportunityStatus?)null))
+            : recommendations.Where(o => o.Verdict is Recommendation.SubmitNow or Recommendation.Outreach)
+                .Select(o => (Event: o.Opportunity.Event, Verdict: o.Verdict!.Value, o.Opportunity.UserStatus)))
+            .OrderBy(o => o.Verdict == Recommendation.SubmitNow ? 0 : 1)
+            .ThenBy(o => o.Event.CfpDeadline ?? DateTimeOffset.MaxValue)
+            .ThenBy(o => o.Event.Name, StringComparer.Ordinal)
             .ToList();
 
         var sb = new StringBuilder();
         sb.Append("📊 <b>Pipeline</b>\n");
+        if (current is not null) sb.Append("Board status: ");
         sb.Append(string.Join("  ·  ", counts));
+        if (recommendations is not null)
+            sb.Append("\nRecommendations: ")
+                .Append($"{recommendations.Count(o => o.Verdict == Recommendation.SubmitNow)} SubmitNow · ")
+                .Append($"{recommendations.Count(o => o.Verdict == Recommendation.Outreach)} Outreach · ")
+                .Append($"{recommendations.Count(o => o.Verdict == Recommendation.Monitor)} Monitor");
 
         if (actionable.Count > 0)
         {
             sb.Append("\n\n<b>Actionable</b>\n");
-            foreach (var e in actionable)
+            foreach (var item in actionable)
             {
+                var e = item.Event;
                 sb.Append("• ")
                   .Append(TelegramText.Escape(e.Name))
                   .Append(" <code>")
                   .Append(TelegramText.Escape(e.Slug))
                   .Append("</code> — ")
-                  .Append(e.Category)
-                  .Append(", ")
+                  .Append(current is null ? "" : "Recommendation: ")
+                  .Append(item.Verdict);
+                if (item.UserStatus is { } pinned) sb.Append($" · Your status: {pinned}");
+                sb.Append(", ")
                   .Append(FormatDeadline(e.CfpDeadline))
                   .Append('\n');
             }
