@@ -96,6 +96,9 @@ the prior feedback and retain its original attribution even after later scoring;
 calibration queries omit superseded entries. Compatibility actions require genuine
 explicit reasons for Drop/demotion and never manufacture Other feedback. Repeat-talk overrides
 use a distinct action and do not become calibration examples.
+Moving backwards through New, Monitor, Outreach, SubmitNow, Drafting, Submitted,
+Accepted, and Delivered requires an explicit reason. Reopening a rejected opportunity
+does not count as a workflow demotion.
 
 Recorded submission reconciliation reads actual `Submissions` through the API and
 updates `RecordedSubmissionStatus` conditionally. It never fabricates a submission

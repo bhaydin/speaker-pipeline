@@ -181,6 +181,13 @@ public sealed class OpportunityAzuriteTests
             await table.UpdateEntityAsync(command, command.ETag, TableUpdateMode.Replace);
             Assert.Equal(Serialize(accepted with { ETag = "" }), Serialize(await repository.ApplyActionAsync(original.Slug, request, original.ETag, "owner")));
             Assert.Equal(later.ETag, (await repository.GetAsync(original.Slug))!.ETag);
+
+            var backwards = Action(OpportunityAction.SetStatus) with { Status = OpportunityStatus.Monitor };
+            await Assert.ThrowsAsync<ArgumentException>(() => repository.ApplyActionAsync(original.Slug, backwards, later.ETag, "owner"));
+            Assert.Equal(later.ETag, (await repository.GetAsync(original.Slug))!.ETag);
+            var demoted = await repository.ApplyActionAsync(original.Slug, backwards with { ReasonCode = FeedbackReason.BadTiming }, later.ETag, "owner");
+            Assert.Equal(OpportunityStatus.Monitor, demoted.Status);
+            Assert.Equal(FeedbackReason.BadTiming, (await repository.GetHistoryAsync(original.Slug)).First(h => h.Kind == "Feedback").ReasonCode);
         }
         finally { await table.DeleteAsync(); }
     }

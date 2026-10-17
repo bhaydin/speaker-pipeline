@@ -152,6 +152,7 @@ public sealed class TelegramInteractions(IOperationsApiClient operations, IOppor
         var current = await opportunities.GetOpportunityAsync(item.EventSlug, ct);
         if (current is null) return state;
         var resolution = current.DoNotResurface ? "Dropped"
+            : current.Status is OpportunityStatus.Submitted or OpportunityStatus.Accepted or OpportunityStatus.Delivered or OpportunityStatus.Rejected or OpportunityStatus.Dropped ? current.Status.ToString()
             : current.SnoozedUntilUtc > time.GetUtcNow() ? "Snoozed 7 days"
             : current.Status switch { OpportunityStatus.SubmitNow => "Submit now", OpportunityStatus.NotPursuing => "Not pursuing", _ => current.Status.ToString() };
         return state with { Items = state.Items.Select(i => i.Reference == item.Reference ? i with { Resolution = resolution } : i).ToArray() };

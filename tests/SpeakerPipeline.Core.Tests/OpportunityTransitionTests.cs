@@ -53,6 +53,27 @@ public sealed class OpportunityTransitionTests
         Assert.True(changed.RepeatTalkOverride);
         Assert.Equal(original.ScoringInputRevision + 1, changed.ScoringInputRevision);
     }
+    [Theory]
+    [InlineData(OpportunityStatus.Submitted, OpportunityStatus.Monitor)]
+    [InlineData(OpportunityStatus.Accepted, OpportunityStatus.Outreach)]
+    [InlineData(OpportunityStatus.Delivered, OpportunityStatus.SubmitNow)]
+    [InlineData(OpportunityStatus.Accepted, OpportunityStatus.Submitted)]
+    public void Moving_backwards_from_workflow_progress_requires_explicit_reason(OpportunityStatus from, OpportunityStatus to)
+    {
+        var original = new OpportunityRecord { Event = Event(), UserStatus = from };
+        var request = Request(OpportunityAction.SetStatus) with { Status = to };
+        Assert.Throws<ArgumentException>(() => OpportunityTransitions.Apply(original, request, Now));
+        var changed = OpportunityTransitions.Apply(original, request with { ReasonCode = FeedbackReason.BadTiming }, Now);
+        Assert.Equal(to, changed.Status);
+        Assert.Equal(original.ScoringInputRevision + 1, changed.ScoringInputRevision);
+    }
+    [Fact]
+    public void Reopening_rejected_opportunity_is_not_a_workflow_demotion()
+    {
+        var rejected = new OpportunityRecord { Event = Event(), UserStatus = OpportunityStatus.Rejected };
+        Assert.Equal(OpportunityStatus.Monitor, OpportunityTransitions.Apply(rejected,
+            Request(OpportunityAction.SetStatus) with { Status = OpportunityStatus.Monitor }, Now).Status);
+    }
     private static OpportunityActionRequest Request(OpportunityAction action) => new() { Action = action, IdempotencyKey = Guid.NewGuid().ToString("n") };
     internal static EventRecord Event(EventCategory category = EventCategory.Monitor) => new() { Slug = "fictional-event", Name = "Fictional event", EventType = EventType.Conference, Category = category, Priority = Priority.Medium };
 }

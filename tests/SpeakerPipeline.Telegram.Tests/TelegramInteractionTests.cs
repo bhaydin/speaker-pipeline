@@ -114,21 +114,44 @@ public sealed class TelegramInteractionTests
         Assert.Equal(1, setup.Opportunities.Actions);
     }
 
-    [Fact]
-    public async Task Saved_action_edit_repair_refreshes_later_owner_placement_without_repeating_the_command()
+    [Theory]
+    [InlineData("s")]
+    [InlineData("z")]
+    public async Task Saved_action_edit_repair_refreshes_later_owner_placement_without_repeating_the_command(string action)
     {
         var setup = await Setup();
+        var callback = setup.Callback with { Data = setup.Callback.Data![..^1] + action };
         setup.Transport.FailEdit = true;
-        await Assert.ThrowsAsync<TelegramApiException>(() => setup.Handler.HandleAsync(setup.Callback, default));
+        await Assert.ThrowsAsync<TelegramApiException>(() => setup.Handler.HandleAsync(callback, default));
         setup.Opportunities.MoveElsewhere(OpportunityStatus.Accepted);
         setup.Transport.FailEdit = false;
 
-        await setup.Handler.HandleAsync(setup.Callback, default);
+        await setup.Handler.HandleAsync(callback, default);
 
         Assert.Equal(1, setup.Opportunities.Actions);
+        if (action == "z") Assert.NotNull(setup.Opportunities.SnoozedUntilUtc);
         using var edit = JsonDocument.Parse(setup.Transport.Bodies.Last());
         Assert.Contains("Item 1: Accepted", edit.RootElement.GetProperty("text").GetString());
         Assert.DoesNotContain("Item 1: Submitted", edit.RootElement.GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task Failed_refresh_after_acceptance_preserves_resolution_and_replay_only_repairs_display()
+    {
+        var setup = await Setup();
+        setup.Opportunities.FailGet = true;
+        await Assert.ThrowsAsync<HttpRequestException>(() => setup.Handler.HandleAsync(setup.Callback, default));
+        var saved = OperationState.Read<TelegramMessageState>(await setup.Store.GetAsync("messages", "message"))!;
+        Assert.Equal("Submitted", Assert.Single(saved.Items).Resolution);
+        Assert.Null(saved.LockedUntilUtc);
+        Assert.Equal(1, setup.Opportunities.Actions);
+
+        setup.Opportunities.FailGet = false;
+        await setup.Handler.HandleAsync(setup.Callback, default);
+
+        Assert.Equal(1, setup.Opportunities.Actions);
+        Assert.Single(setup.Transport.Methods, m => m == "editMessageText");
+        Assert.Contains("Submitted", setup.Transport.Bodies.Last());
     }
 
     [Theory]
@@ -248,9 +271,11 @@ public sealed class TelegramInteractionTests
         public OpportunityAction LastAction { get; private set; }
         public FeedbackReason? LastReason { get; private set; }
         public DateTimeOffset? SnoozedUntilUtc { get; private set; }
+        public bool FailGet { get; set; }
         private OpportunityRecord _record = new() { Event = new EventRecord { Slug = "event", Name = "Event", EventType = EventType.Conference, Category = EventCategory.SubmitNow, Priority = Priority.High }, ETag = "1" };
         public void MoveElsewhere(OpportunityStatus status) => _record = _record with { UserStatus = status, ETag = "later" };
-        public Task<OpportunityRecord?> GetOpportunityAsync(string slug, CancellationToken ct = default) => Task.FromResult<OpportunityRecord?>(_record);
+        public Task<OpportunityRecord?> GetOpportunityAsync(string slug, CancellationToken ct = default)
+            => FailGet ? throw new HttpRequestException("Synthetic refresh failure") : Task.FromResult<OpportunityRecord?>(_record);
         public Task<OpportunityRecord> ApplyOpportunityActionAsync(string slug, OpportunityActionRequest request, string expectedETag, CancellationToken ct = default)
         {
             if (expectedETag != CurrentETag) throw new OpportunityConflictException("newer revision");
