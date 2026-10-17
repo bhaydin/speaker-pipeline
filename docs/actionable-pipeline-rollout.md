@@ -176,6 +176,15 @@ evaluations made no tracker writes and do not prove statistical stability.
 They establish predeployment evidence, not production activation. Preserve the
 synthetic reports privately with the release evidence.
 
+The audit-fix release subsequently deployed v6 and the related command, status,
+catalog precision, and dashboard corrections on October 17. Its main CI passed
+588 tests; the published dashboard also passed synthetic browser checks at 320,
+390, and 1440 pixels. These cover eleven opportunity commands, three catalog
+review forms, stale-edit refresh, feedback labels, and sign-out. Independent
+post-release readiness, identity, credential-reference, role, and control checks
+passed. See the [deployment record](../.azure/deployment-plan.md) for exact source,
+artifact provenance, and the still-open scheduled-run/source-push observations.
+
 The current production cutover completed the isolated restore rehearsal,
 opportunity migration, authority switch, and read-only catalog publication.
 Two bounded scoring batches produced 36 validated catalog-backed decisions;
