@@ -193,9 +193,13 @@ Owner dashboard sign-in reached an administrator approval screen in the wrong
 tenant. The owner confirmed personal-tenant authentication on unchanged hosting.
 That configuration is now corrected, its Key Vault reference resolves, and both
 hosts pass readiness; unrelated settings and machine API authentication were
-preserved. The account-chooser release and interactive sign-in remain pending. An actual
-source push and the first scheduled runs remain future observations; GitHub
-configuration and authenticated delivery are verified. Preserve any explicit
-pause until its own acceptance gate passes. No
+preserved. The account-chooser release succeeded, and the public login redirect
+uses the confirmed personal tenant and client with PKCE and an account chooser.
+Transient API startup errors and probe timeouts recovered; their cause is not
+established. Interactive owner sign-in remains unverified. Retirement of the
+superseded dashboard registration and credential remains pending owner
+acceptance. An actual source push and the first scheduled runs remain future
+observations; GitHub configuration and authenticated delivery are verified.
+Preserve any explicit pause until its own acceptance gate passes. No
 organizer outreach, CFP submission, publishing, or source-repository writing is
 part of this release.

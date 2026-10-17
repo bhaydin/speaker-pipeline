@@ -21,8 +21,8 @@ sign-in uses the owner's personal tenant. The earlier description of the hosting
 subscription and Key Vault as personal was incorrect. This correction authorizes
 the dashboard identity configuration only; it does not relocate resources or
 change machine API authentication. The personal dashboard identity configuration
-is corrected; the account-chooser release and interactive sign-in verification
-remain pending.
+is corrected and the account-chooser release succeeded. Interactive owner
+sign-in and retirement of the superseded dashboard registration remain pending.
 
 All validation checks must pass:
 
@@ -48,6 +48,7 @@ Activation gates:
 - [ ] Future observation: actual source push and resulting catalog reconciliation
 - [x] Controlled catalog, scoring, tracker, discovery, email, and operational health
 - [ ] Interactive owner dashboard sign-in
+- [ ] Superseded dashboard registration and credential retired after owner acceptance
 - [x] Telegram Drop/Cancel picker and message editing verified without business-state changes
 - [x] Normal writers and delivery restored, except explicitly gated channels
 - [ ] First scheduled behavior observed
@@ -103,8 +104,8 @@ Personal dashboard correction predeployment proof on 2026-10-17 UTC:
   passed for commit `66a021e03783a4b6098fb934ad58781e36ea9d05`: 558 tests passed,
   zero failed, and one opt-in live-model test skipped. This includes 88 API
   tests, 81 storage tests with real Azurite, and both deterministic evaluation
-  suites. These tested artifacts are ready for the release workflow; deployment
-  and interactive owner sign-in remain unverified.
+  suites. The successful deployment of these tested artifacts is recorded below;
+  interactive owner sign-in remains unverified.
 
 ## Current release evidence
 
@@ -141,8 +142,9 @@ administration is closed. Never return authority to the stale Events baseline.
 The owner dashboard shell is live; anonymous data reads return 401, signed-out
 session checks expose no request token, and the Entra challenge uses the exact
 HTTPS callback with PKCE. Interactive owner sign-in reached an administrator
-approval screen in the wrong tenant. The personal identity configuration is now
-corrected; the account-chooser release and interactive sign-in remain pending.
+approval screen in the wrong tenant. The personal identity configuration and
+account-chooser release are now verified; interactive owner sign-in remains
+pending.
 
 The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
 and eight public artifacts from the two read-only repositories. An unchanged
@@ -264,10 +266,19 @@ chooser for dashboard sign-in. It merged as
 `66a021e03783a4b6098fb934ad58781e36ea9d05`; its
 [main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38997527523)
 passed with 558 tests, zero failures, and one opt-in live-model test skipped.
-The account-chooser code has not yet been deployed, and interactive
-owner sign-in remains unverified. Actual source push and first scheduled-run
-observations also remain open; the GitHub configuration and authenticated
-delivery checks have passed.
+The [account-chooser release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38997747723)
+succeeded using those tested artifacts. Both API and Functions authenticated
+readiness returned HTTP 200, and all operational controls were independently
+verified preserved. At 2026-10-17 03:19:36 UTC, the public login redirect targeted
+the confirmed personal tenant and client with PKCE and the account chooser.
+Transient API startup HTTP 500 responses and probe timeouts recovered before
+final verification; their underlying cause has not been established.
+
+Interactive owner sign-in remains unverified. Retirement of the superseded
+dashboard registration and credential is prepared but remains pending owner
+acceptance; the current hosts no longer reference them. Actual source push and
+first scheduled-run observations also remain open. The GitHub configuration and
+authenticated delivery checks have passed.
 
 ## Historical production promotion
 
