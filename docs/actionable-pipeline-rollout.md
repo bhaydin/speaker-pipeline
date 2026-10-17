@@ -51,8 +51,10 @@ assumed to be the owner's personal tenant.
 
 Create a single-tenant Entra web application in the confirmed personal tenant.
 Register `https://<existing-api-host>/signin-dashboard` as its web redirect URI.
-It needs OpenID Connect sign-in only; the dashboard does not call Microsoft Graph.
-Configure the API with:
+Configure only the basic `openid` and `profile` sign-in scopes; the dashboard
+does not call Microsoft Graph. Require user assignment, assign the exact owner,
+and grant consent for those scopes to that owner only. Store the app credential
+in the existing hosting environment's Key Vault. Configure the API with:
 
 - `Dashboard__TenantId`: the confirmed personal tenant ID.
 - `Dashboard__OwnerObjectId`: the exact owner's object ID in that tenant.
@@ -188,8 +190,10 @@ released. No real Drop was committed. Mutation and replay behavior are covered
 by regression tests; this live check verified the picker and Cancel flow only.
 
 Owner dashboard sign-in reached an administrator approval screen in the wrong
-tenant. The owner confirmed personal-tenant authentication on unchanged hosting;
-that fix is in progress and interactive sign-in remains unverified. An actual
+tenant. The owner confirmed personal-tenant authentication on unchanged hosting.
+That configuration is now corrected, its Key Vault reference resolves, and both
+hosts pass readiness; unrelated settings and machine API authentication were
+preserved. The account-chooser release and interactive sign-in remain pending. An actual
 source push and the first scheduled runs remain future observations; GitHub
 configuration and authenticated delivery are verified. Preserve any explicit
 pause until its own acceptance gate passes. No

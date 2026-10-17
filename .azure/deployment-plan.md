@@ -20,8 +20,9 @@ The owner explicitly confirmed that hosting remains in place while dashboard
 sign-in uses the owner's personal tenant. The earlier description of the hosting
 subscription and Key Vault as personal was incorrect. This correction authorizes
 the dashboard identity configuration only; it does not relocate resources or
-change machine API authentication. Personal dashboard sign-in is being fixed
-and has not yet passed interactive verification.
+change machine API authentication. The personal dashboard identity configuration
+is corrected; the account-chooser release and interactive sign-in verification
+remain pending.
 
 All validation checks must pass:
 
@@ -35,7 +36,7 @@ Activation gates:
 
 - [x] Dedicated GitHub App reads only the two intended source repositories
 - [x] Private key stored in the existing Key Vault; Functions reference resolves
-- [ ] Confirmed personal dashboard identity configured and verified with owner restriction
+- [x] Confirmed personal dashboard identity configured with owner restriction
 - [x] Three additive tables provisioned and included in the API inventory
 - [x] Successful main CI artifacts deployed API first, then Functions
 - [x] Telegram credential replacement and resolved Key Vault reference
@@ -105,7 +106,7 @@ The three additive tables were provisioned without changing existing tables or
 hosting resources. The initial dashboard registration was single-tenant and its
 secret reference resolved, but the interactive check exposed that it targeted
 the hosting tenant instead of the confirmed personal owner identity. The
-personal identity correction is authorized and pending verification. Authority,
+personal identity configuration is now corrected, pending interactive verification. Authority,
 catalog, scoring, and the dashboard are enabled. Telegram credential replacement
 and GitHub webhook activation have since passed the checks below; interactive
 owner sign-in remains open.
@@ -124,7 +125,8 @@ administration is closed. Never return authority to the stale Events baseline.
 The owner dashboard shell is live; anonymous data reads return 401, signed-out
 session checks expose no request token, and the Entra challenge uses the exact
 HTTPS callback with PKCE. Interactive owner sign-in reached an administrator
-approval screen in the wrong tenant; the personal sign-in fix remains pending.
+approval screen in the wrong tenant. The personal identity configuration is now
+corrected; the account-chooser release and interactive sign-in remain pending.
 
 The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
 and eight public artifacts from the two read-only repositories. An unchanged
@@ -234,10 +236,21 @@ and the message lock was released. No real Drop was committed. Mutation and
 replay behavior are covered by regression tests, including failed-edit recovery;
 the live Drop/Cancel check does not claim a mutating-action replay.
 
-Interactive owner dashboard sign-in remains pending the authorized personal
-identity fix on unchanged hosting. Actual source push and first scheduled-run
-observations remain open; the GitHub configuration and authenticated delivery
-checks have passed.
+At 2026-10-17 03:06:43 UTC, the dedicated personal-tenant dashboard app was
+configured with the exact owner, required user assignment, and an owner-scoped
+grant for `openid` and `profile` only. Its credential reference resolves from
+the existing Key Vault. Only four dashboard settings changed; all unrelated
+settings, machine API authentication, and operator controls were verified
+unchanged. API and Functions readiness both returned HTTP 200.
+
+[PR 45](https://github.com/bhaydin/speaker-pipeline/pull/45) adds an account
+chooser for dashboard sign-in. It merged as
+`66a021e03783a4b6098fb934ad58781e36ea9d05`; its
+[main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38997527523)
+is running. The account-chooser code has not yet been deployed, and interactive
+owner sign-in remains unverified. Actual source push and first scheduled-run
+observations also remain open; the GitHub configuration and authenticated
+delivery checks have passed.
 
 ## Historical production promotion
 
