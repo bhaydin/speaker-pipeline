@@ -31,13 +31,16 @@ Activation gates:
 - [x] Dashboard Entra identity and credential configured with owner restriction
 - [x] Three additive tables provisioned and included in the API inventory
 - [x] Successful main CI artifacts deployed API first, then Functions
-- [ ] Telegram credential replacement and controlled runtime redaction check
+- [x] Telegram credential replacement and resolved Key Vault reference
+- [x] Telegram command and digest delivery with controlled runtime redaction check
 - [x] Fresh frozen private snapshot, isolated restore and migration rehearsal
 - [x] Production migration, retained-data verification, and authority switch
 - [x] Validated catalog and catalog-aware scoring enabled
-- [ ] GitHub App Push subscription, webhook activation, and actual delivery verified
+- [x] GitHub App and installation Push subscription, webhook activation, and actual ping delivery verified
+- [ ] Future observation: actual source push and resulting catalog reconciliation
 - [x] Controlled catalog, scoring, tracker, discovery, email, and operational health
-- [ ] Owner dashboard sign-in and Telegram action/edit/replay
+- [ ] Interactive owner dashboard sign-in
+- [ ] Telegram action/edit/replay
 - [x] Normal writers and delivery restored, except explicitly gated channels
 - [ ] First scheduled behavior observed
 
@@ -94,8 +97,9 @@ in infrastructure and the release workflow; its complete CI passed before merge.
 The three additive tables were provisioned without changing existing tables or
 hosting resources. The dashboard identity is single-tenant, assigned to the
 owner, and its secret reference resolves. Authority, catalog, scoring, and the
-dashboard are enabled. Token replacement, GitHub webhook activation, and
-interactive owner sign-in remain separate gates.
+dashboard are enabled. Telegram credential replacement and GitHub webhook
+activation have since passed the checks below; interactive owner sign-in and
+Telegram runtime acceptance remain open.
 The configured Google search project currently returns access-denied 403 and
 must remain visible as degraded discovery rather than a healthy empty result.
 
@@ -116,8 +120,9 @@ The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
 and eight public artifacts from the two read-only repositories. An unchanged
 second reconciliation preserved that generation. Both runs succeeded with zero
 model extraction calls; uncertain deliveries and unlinked artifacts remain in
-review. The receiver accepted a valid signed ping and rejected an invalid one,
-without enqueueing work. This does not establish GitHub-side webhook activation.
+review. The initial receiver check accepted a valid signed ping and rejected an
+invalid one without enqueueing work. The later GitHub-side activation and real
+delivery evidence is recorded below.
 Catalog worker and nightly fallback are enabled. Scoring is configured for the
 validated catalog with explicit candidate, prompt, and completion ceilings.
 
@@ -157,20 +162,64 @@ At 2026-10-17 00:28 UTC, after response-fix verification, the 12 non-Telegram
 functions and email delivery were restored, including normal discovery limits,
 health/retry timers, ingestion,
 and catalog reconciliation. API authority and catalog-aware scoring remain
-enabled; maintenance remains closed. Telegram delivery and its receiver stay
-paused pending credential replacement. Scheduled-run observation remains open.
+enabled; maintenance remains closed. Telegram delivery and its receiver were
+kept paused for credential replacement at that stage. Subsequent credential and
+webhook checks are recorded below. Scheduled-run observation remains open.
 
 Telemetry from the initial actionable release through 2026-10-17 00:07 UTC contained 9,868
 rows and zero matches for the checked credential patterns. This interval contains
 real API, model, and email activity but no Telegram traffic; it does not replace
 the required post-rotation Telegram send/edit/callback check.
 
-Final verification after the response-fix release confirmed both deployed commit
+Verification after the response-fix release confirmed both deployed commit
 identities, authenticated readiness, and maintenance returning 404. There were
 no running operations, pending outbox items, or failed/uncertain deliveries.
 The post-release telemetry sample contained 592 rows, zero credential-pattern
 matches, zero exceptions, and one successful discovery completion. Telegram
-traffic remains absent while that channel is paused.
+traffic was absent from that sample while the channel was paused.
+
+At 2026-10-17 01:12 UTC, the dedicated GitHub App and its installation both
+subscribed to Push and retained selected access to exactly the two intended
+repositories, with Contents and Metadata read-only permissions. The configured
+webhook uses the catalog receiver, JSON content, and SSL verification. After
+synchronizing its staged secret, an actual GitHub ping redelivery returned HTTP
+202; a subsequent real installation event also returned 202. No source files or
+commits were written, and no real push delivery has yet been observed. These
+checks prove GitHub delivery and authentication, while push-triggered catalog
+reconciliation remains an observation gate.
+
+Telegram credentials were rotated for the same bot. The replacement token is
+valid, the previous token returns 401, and the host's Key Vault reference
+resolves. The receiver rejected an unauthenticated request with 401 and accepted
+an authenticated empty update with 200. A real `/status` command reached the
+receiver but Telegram rejected its response with HTTP 400 because the request
+included `reply_markup: null`.
+
+[PR 43](https://github.com/bhaydin/speaker-pipeline/pull/43) omits null reply markup
+for command responses. It merged as commit
+`cf53749c679e12f2793285119deeb67ee7b238e3`; its
+[main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38990275380)
+passed with 549 tests and one opt-in live-model test skipped. The
+[Telegram response-fix release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38990416430)
+succeeded at 2026-10-17 01:29 UTC. Both hosts passed authenticated readiness, and
+the release verified that operator controls were preserved. Independent API and
+Functions readiness checks also returned HTTP 200.
+
+The controlled Telegram scoring run returned HTTP 200 with one successful run:
+36 cached decisions, two new decisions, no deferred candidates, and no errors.
+It used 6,406 input and 1,368 completion tokens; pricing remains unknown. Durable
+outbox and delivery receipts confirmed three Telegram message parts and one
+email, all Sent/Completed, with no failed, uncertain, or still-sending delivery.
+The five temporary controls were restored at 2026-10-17 01:32:34 UTC; all other
+configuration was preserved.
+
+Two queued real `/status` handlers succeeded, and Telegram reported zero pending
+updates. One handler cancellation occurred before readiness was established;
+no handler failures occurred after readiness through 01:32:49 UTC. The telemetry
+sample contained 2,680 rows with zero matches for the checked credential patterns.
+Callback state/edit/replay and interactive owner dashboard sign-in remain
+pending. Actual source push and first scheduled-run observations remain open;
+the GitHub configuration and authenticated delivery checks have passed.
 
 ## Historical production promotion
 
