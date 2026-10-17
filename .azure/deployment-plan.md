@@ -90,6 +90,22 @@ Current rollout validation on 2026-10-16 UTC:
 
 Historical proof below is not evidence for changed binaries or the new schema.
 
+Personal dashboard correction predeployment proof on 2026-10-17 UTC:
+
+- Existing hosting, infrastructure, and resource RBAC remain unchanged. The
+  authorized correction changes dashboard identity configuration; machine API
+  authentication and operator controls were verified preserved.
+- Graph checks confirmed the personal dashboard app, exact-owner assignment,
+  required user assignment, and owner-scoped consent for `openid` and `profile`
+  only. The credential reference resolves from the existing Key Vault. Both API
+  and Functions authenticated readiness checks returned HTTP 200.
+- [Account-chooser main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38997527523)
+  passed for commit `66a021e03783a4b6098fb934ad58781e36ea9d05`: 558 tests passed,
+  zero failed, and one opt-in live-model test skipped. This includes 88 API
+  tests, 81 storage tests with real Azurite, and both deterministic evaluation
+  suites. These tested artifacts are ready for the release workflow; deployment
+  and interactive owner sign-in remain unverified.
+
 ## Current release evidence
 
 The [actionable release](https://github.com/bhaydin/speaker-pipeline/actions/runs/38981000712)
@@ -247,7 +263,8 @@ unchanged. API and Functions readiness both returned HTTP 200.
 chooser for dashboard sign-in. It merged as
 `66a021e03783a4b6098fb934ad58781e36ea9d05`; its
 [main CI](https://github.com/bhaydin/speaker-pipeline/actions/runs/38997527523)
-is running. The account-chooser code has not yet been deployed, and interactive
+passed with 558 tests, zero failures, and one opt-in live-model test skipped.
+The account-chooser code has not yet been deployed, and interactive
 owner sign-in remains unverified. Actual source push and first scheduled-run
 observations also remain open; the GitHub configuration and authenticated
 delivery checks have passed.
