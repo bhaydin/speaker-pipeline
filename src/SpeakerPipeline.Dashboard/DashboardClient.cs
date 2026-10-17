@@ -72,8 +72,10 @@ public sealed class DashboardClient(HttpClient http)
             throw new InvalidOperationException(response.StatusCode == HttpStatusCode.BadRequest
                 ? "Choose a reason for this change and check the fields before trying again."
                 : "The change could not be saved. Your current state is preserved.");
-        return await response.Content.ReadFromJsonAsync<OpportunityRecord>(Json)
-            ?? throw new InvalidOperationException("The API did not return the updated opportunity.");
+        // A replay returns the immutable accepted result, which may predate a later move.
+        // Refresh explicitly before painting the board or issuing another conditional action.
+        return await GetOpportunityAsync(opportunity.Slug)
+            ?? throw new InvalidOperationException("The saved opportunity could not be refreshed.");
     }
 
     public async Task SignOutAsync()

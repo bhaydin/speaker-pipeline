@@ -57,7 +57,7 @@ results are never truncated to fit a property.
 moved. Human or migration-pinned placements survive later model verdicts. Automatic
 Pass/Skip map to NotPursuing without suppression; explicit Drop sets Dropped and
 `DoNotResurface=true`. Snooze is an overlay lasting seven days from the accepted
-action, with replay returning current state without extending expiry.
+action, with replay returning the original accepted result without extending expiry.
 
 Legacy Monitor/Outreach/SubmitNow/Submitted/Accepted/Delivered retain placement;
 Pass maps to NotPursuing, Skip to Dropped, Quarantine to Review. Existing suppression
@@ -72,6 +72,14 @@ idempotency rows in one same-partition Table transaction. User writes require an
 changed facts reject the score with 409, while unrelated user movement can be retried
 without overwriting that movement. Full decisions preserve rubric, catalog, match,
 score-scale and feedback identifiers. Preparation effort is higher for more work.
+The API ETag is an opaque quoted version stored in the aggregate JSON and command
+result atomically. Conditional Table writes use the freshly loaded physical Azure ETag;
+the API version is never passed to Table Storage. Existing rows without a stored API
+version expose their physical ETag until their next mutation. New writes allocate a
+new API version, and duplicate commands return the original snapshot and version even
+after later mutations. Older command receipts retain their original blank version;
+clients refresh current state before subsequent actions. Dashboard refreshes explicitly
+after a command; command replay never writes an old snapshot back to the aggregate.
 Idempotent score replay precedes current-input validation. New actionable scores cannot
 bypass known hard calendar conflicts; SubmitNow also requires an HTTP(S) CFP URL plus
 observed Open status or a future deadline, and

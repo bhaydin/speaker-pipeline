@@ -114,6 +114,23 @@ public sealed class TelegramInteractionTests
         Assert.Equal(1, setup.Opportunities.Actions);
     }
 
+    [Fact]
+    public async Task Saved_action_edit_repair_refreshes_later_owner_placement_without_repeating_the_command()
+    {
+        var setup = await Setup();
+        setup.Transport.FailEdit = true;
+        await Assert.ThrowsAsync<TelegramApiException>(() => setup.Handler.HandleAsync(setup.Callback, default));
+        setup.Opportunities.MoveElsewhere(OpportunityStatus.Accepted);
+        setup.Transport.FailEdit = false;
+
+        await setup.Handler.HandleAsync(setup.Callback, default);
+
+        Assert.Equal(1, setup.Opportunities.Actions);
+        using var edit = JsonDocument.Parse(setup.Transport.Bodies.Last());
+        Assert.Contains("Item 1: Accepted", edit.RootElement.GetProperty("text").GetString());
+        Assert.DoesNotContain("Item 1: Submitted", edit.RootElement.GetProperty("text").GetString());
+    }
+
     [Theory]
     [InlineData("s", OpportunityAction.Submitted)]
     [InlineData("z", OpportunityAction.Snooze7Days)]
@@ -231,13 +248,15 @@ public sealed class TelegramInteractionTests
         public OpportunityAction LastAction { get; private set; }
         public FeedbackReason? LastReason { get; private set; }
         public DateTimeOffset? SnoozedUntilUtc { get; private set; }
-        private readonly OpportunityRecord _record = new() { Event = new EventRecord { Slug = "event", Name = "Event", EventType = EventType.Conference, Category = EventCategory.SubmitNow, Priority = Priority.High }, ETag = "1" };
+        private OpportunityRecord _record = new() { Event = new EventRecord { Slug = "event", Name = "Event", EventType = EventType.Conference, Category = EventCategory.SubmitNow, Priority = Priority.High }, ETag = "1" };
+        public void MoveElsewhere(OpportunityStatus status) => _record = _record with { UserStatus = status, ETag = "later" };
         public Task<OpportunityRecord?> GetOpportunityAsync(string slug, CancellationToken ct = default) => Task.FromResult<OpportunityRecord?>(_record);
         public Task<OpportunityRecord> ApplyOpportunityActionAsync(string slug, OpportunityActionRequest request, string expectedETag, CancellationToken ct = default)
         {
             if (expectedETag != CurrentETag) throw new OpportunityConflictException("newer revision");
             Actions++; LastAction = request.Action; LastReason = request.ReasonCode;
-            if (request.Action == OpportunityAction.Snooze7Days) SnoozedUntilUtc = DateTimeOffset.UtcNow.AddDays(7);
+            _record = OpportunityTransitions.Apply(_record, request, DateTimeOffset.UtcNow);
+            SnoozedUntilUtc = _record.SnoozedUntilUtc;
             return Task.FromResult(_record);
         }
         public Task<IReadOnlyList<OpportunityRecord>> GetOpportunitiesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<OpportunityRecord>>([_record]);
