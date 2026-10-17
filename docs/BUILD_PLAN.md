@@ -3,11 +3,19 @@
 _Operationalizing Brian's speaking pipeline: event-driven discovery, persistent state, topic injection, calendar-aware conflicts, proactive notifications._
 _Version 1.0 — 2026-07-03. Drop this into the repo as `docs/BUILD_PLAN.md`._
 
+This is the original Phase 2 design, not a record of the deployed architecture.
+The owner subsequently authorized keeping the existing hosting and using a
+separate personal tenant for dashboard sign-in. That decision supersedes this
+plan's original assumption that infrastructure and all identities would live in
+a personal tenant. The ownership references below reflect that correction; see
+the [current rollout](actionable-pipeline-rollout.md) for implementation and
+acceptance status.
+
 ---
 
 ## 1. Executive summary
 
-Extend the existing **bhaydin/speaker-pipeline** scaffold into a running system on Brian's **personal Azure tenant** (~$150/mo credits). Microsoft Agent Framework agents on **Azure AI Foundry Agent Service** do the thinking; **Logic Apps Consumption** does the scheduling; a **storage account** (Table + Blob) is the portable system of record; a lightweight **MCP server** lets Claude, Copilot, or any MCP-capable surface inject topic ideas and drive pipeline commands; **Telegram** is the launch notification lane with **plain email as fallback** and Teams (Haydin.ai) deferred. The agent never submits to CFP platforms — it recommends, short-drafts, and tracks; Brian submits. Every component emits OpenTelemetry from day one, because this system is itself MVP-submission and talk material.
+Extend the existing **bhaydin/speaker-pipeline** scaffold into a running system on the **existing Azure hosting environment**. Microsoft Agent Framework agents on **Azure AI Foundry Agent Service** do the thinking; **Logic Apps Consumption** does the scheduling; a **storage account** (Table + Blob) is the portable system of record; a lightweight **MCP server** lets Claude, Copilot, or any MCP-capable surface inject topic ideas and drive pipeline commands; **Telegram** is the launch notification lane with **plain email as fallback** and Teams (Haydin.ai) deferred. The agent never submits to CFP platforms — it recommends, short-drafts, and tracks; Brian submits. Every component emits OpenTelemetry from day one, because this system is itself MVP-submission and talk material.
 
 **Five build milestones, each independently demoable. Milestone 1 is a weekend.**
 
@@ -17,7 +25,7 @@ Extend the existing **bhaydin/speaker-pipeline** scaffold into a running system 
 
 ```text
                         ┌─────────────────────────────────────────┐
-                        │        Personal Azure Tenant            │
+                        │        Existing Azure Hosting           │
                         │                                         │
   Sessionize / Meetup   │  ┌───────────┐     ┌─────────────────┐  │
   GAIC / official pages─┼─▶│  Scout    │────▶│                 │  │
@@ -52,8 +60,8 @@ Extend the existing **bhaydin/speaker-pipeline** scaffold into a running system 
 | 4 | **Steward agent** | Foundry Agent Service | Conversational front door (Telegram webhook + MCP passthrough). Handles state commands, enforces the **submit-intent vs. submitted-confirmed clarification rule**, writes state. |
 | 5 | **Notifier** | Thin .NET service or Functions, called by Steward/Logic Apps | Channel abstraction: `INotificationLane` with Telegram + Email implementations; Teams lane added later without touching callers. Urgent vs. digest routing, dedupe via NotificationLog. |
 | 6 | **MCP server** | Azure Functions Flex Consumption | Remote MCP over Table Storage: topic injection + pipeline queries from any AI surface. |
-| 7 | **Logic Apps (Consumption)** | Personal tenant | All cron: daily light scan, weekly deep scan, weekly digest assembly, monthly "refresh topic ideas from your AI tools" reminder, calendar-auth health check. |
-| 8 | **Storage account** | Personal tenant | Table Storage = entities; Blob = decks, abstracts, exports, seed-data archive. Portable, employer-independent. |
+| 7 | **Logic Apps (Consumption)** | Existing hosting | All cron: daily light scan, weekly deep scan, weekly digest assembly, monthly "refresh topic ideas from your AI tools" reminder, calendar-auth health check. |
+| 8 | **Storage account** | Existing hosting | Table Storage = entities; Blob = decks, abstracts, exports, seed-data archive. Data portability does not imply independent hosting ownership. |
 | 9 | **Observability** | App Insights / Azure Monitor | OTel traces on every agent run, tool call, and notification. Evals harness in repo (AgentOps dogfood + MVP evidence). |
 
 ---
@@ -215,7 +223,7 @@ Key Vault (standard tier) holds every secret; agents read via managed identity.
 
 ### Milestone 1 — State + MCP (a weekend)
 
-1. Resource group, storage account, Key Vault, App Insights in personal tenant (Bicep in repo, `infra/`).
+1. Resource group, storage account, Key Vault, App Insights in the explicitly selected hosting environment (Bicep in repo, `infra/`).
 2. Tables + entity classes (extend repo's existing schema code); migration console tool; seed from tracker CSV/MD.
 3. MCP server on Functions Flex with the six v1 tools.
 4. **Demo:** from a Claude chat — "add a topic idea about model-access supply-chain risk" → row appears in Topics; "what's closing soon" → answers from live state.
@@ -255,7 +263,7 @@ Key Vault (standard tier) holds every secret; agents read via managed identity.
 
 ---
 
-## 8. Cost estimate (monthly, personal tenant)
+## 8. Original monthly cost estimate
 
 | Item | Est. |
 |---|---|
@@ -265,7 +273,7 @@ Key Vault (standard tier) holds every secret; agents read via managed identity.
 | Key Vault standard | < $1 |
 | App Insights (sampled) | $2–5 |
 | Foundry model calls — daily scan extraction + eval on small/mini-class models, short drafts only | $10–30 |
-| **Total** | **~$15–40/mo** — comfortably inside $150 credits |
+| **Total** | **~$15–40/mo** — original design estimate, not verified current billing |
 
 Cost lever if needed: drop daily → 3×/week scans; cache source pages and only re-extract on content hash change (worth doing in Milestone 3 regardless).
 
@@ -280,7 +288,7 @@ Cost lever if needed: drop daily → 3×/week scans; cache source pages and only
 | Google Workspace → M365 migration in flight | Google connector built thin/disposable; Blackouts table (not any calendar) is the conflict system of record. |
 | Token cost creep | Small models for extraction/eval, changed-content gating, monthly cost line in the digest. |
 | Notification fatigue | Urgent-vs-digest split + NotificationLog dedupe; digest capped at ranked top items, not exhaustive lists. |
-| Employer portability | Everything (state, compute, secrets, identity for the system) lives in the personal tenant. Concurrency is a read-only calendar signal, nothing more. |
+| Hosting and identity portability | The owner authorized retaining existing hosting while using a separate personal dashboard identity. Infrastructure relocation would require a separate authorized migration. |
 
 ---
 

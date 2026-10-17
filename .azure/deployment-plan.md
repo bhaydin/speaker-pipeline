@@ -10,11 +10,18 @@ does not establish readiness or completion of this release.
 
 Recipe: cicd, using successful main CI artifacts through the existing manual
 production release workflow. Additive infrastructure uses the Bicep recipe for
-`infra/data-tables.bicep` only. Keep the existing personal subscription, resource
+`infra/data-tables.bicep` only. Keep the existing hosting subscription, resource
 groups, identities, locations, hosting plans, URLs, and notification destinations.
 The subscription is explicitly selected on every cloud operation. No azd
 conversion, resource replacement, source-repository writes, or external CFP
 submission is part of this rollout.
+
+The owner explicitly confirmed that hosting remains in place while dashboard
+sign-in uses the owner's personal tenant. The earlier description of the hosting
+subscription and Key Vault as personal was incorrect. This correction authorizes
+the dashboard identity configuration only; it does not relocate resources or
+change machine API authentication. Personal dashboard sign-in is being fixed
+and has not yet passed interactive verification.
 
 All validation checks must pass:
 
@@ -27,8 +34,8 @@ All validation checks must pass:
 Activation gates:
 
 - [x] Dedicated GitHub App reads only the two intended source repositories
-- [x] Private key stored in personal Key Vault; Functions reference resolves
-- [x] Dashboard Entra identity and credential configured with owner restriction
+- [x] Private key stored in the existing Key Vault; Functions reference resolves
+- [ ] Confirmed personal dashboard identity configured and verified with owner restriction
 - [x] Three additive tables provisioned and included in the API inventory
 - [x] Successful main CI artifacts deployed API first, then Functions
 - [x] Telegram credential replacement and resolved Key Vault reference
@@ -40,7 +47,7 @@ Activation gates:
 - [ ] Future observation: actual source push and resulting catalog reconciliation
 - [x] Controlled catalog, scoring, tracker, discovery, email, and operational health
 - [ ] Interactive owner dashboard sign-in
-- [ ] Telegram action/edit/replay
+- [x] Telegram Drop/Cancel picker and message editing verified without business-state changes
 - [x] Normal writers and delivery restored, except explicitly gated channels
 - [ ] First scheduled behavior observed
 
@@ -54,7 +61,7 @@ Current rollout validation on 2026-10-16 UTC:
 
 - The Azure validation helper completed CLI authentication, compilation, ARM
   validation, and what-if for `infra/data-tables.bicep` on the explicitly pinned
-  personal subscription. Detailed preview adds Catalog, Operations, and
+  hosting subscription. Detailed preview adds Catalog, Operations, and
   Opportunities, retains the existing six tables, and deletes or replaces
   nothing. The table-only deployment leaves hosting and alerts untouched.
 - Applicable resource-group and inherited policy query returned no assignments.
@@ -72,7 +79,7 @@ Current rollout validation on 2026-10-16 UTC:
   Live preflight confirmed API Table Data Contributor on the existing data
   account, Blob Data Contributor on the private artifacts container, and Key
   Vault Secrets User. Functions has Key Vault access and no business-table role.
-  Personal subscription, existing resource groups, and existing eastus2 hosting
+  Existing subscription, resource groups, and eastus2 hosting
   are already authorized; no environment, region, or subscription choice changes.
 - Both current host configurations and the prior successful release packages
   were retained privately. Every package checksum matched its manifest. The
@@ -95,11 +102,13 @@ An explicit API startup command restored service without changing the package.
 in infrastructure and the release workflow; its complete CI passed before merge.
 
 The three additive tables were provisioned without changing existing tables or
-hosting resources. The dashboard identity is single-tenant, assigned to the
-owner, and its secret reference resolves. Authority, catalog, scoring, and the
-dashboard are enabled. Telegram credential replacement and GitHub webhook
-activation have since passed the checks below; interactive owner sign-in and
-Telegram runtime acceptance remain open.
+hosting resources. The initial dashboard registration was single-tenant and its
+secret reference resolved, but the interactive check exposed that it targeted
+the hosting tenant instead of the confirmed personal owner identity. The
+personal identity correction is authorized and pending verification. Authority,
+catalog, scoring, and the dashboard are enabled. Telegram credential replacement
+and GitHub webhook activation have since passed the checks below; interactive
+owner sign-in remains open.
 The configured Google search project currently returns access-denied 403 and
 must remain visible as degraded discovery rather than a healthy empty result.
 
@@ -114,7 +123,8 @@ administration is closed. Never return authority to the stale Events baseline.
 
 The owner dashboard shell is live; anonymous data reads return 401, signed-out
 session checks expose no request token, and the Entra challenge uses the exact
-HTTPS callback with PKCE. Interactive owner sign-in remains unverified.
+HTTPS callback with PKCE. Interactive owner sign-in reached an administrator
+approval screen in the wrong tenant; the personal sign-in fix remains pending.
 
 The initial catalog generation contains 41 talks, 42 versions, 53 engagements,
 and eight public artifacts from the two read-only repositories. An unchanged
@@ -217,9 +227,17 @@ Two queued real `/status` handlers succeeded, and Telegram reported zero pending
 updates. One handler cancellation occurred before readiness was established;
 no handler failures occurred after readiness through 01:32:49 UTC. The telemetry
 sample contained 2,680 rows with zero matches for the checked credential patterns.
-Callback state/edit/replay and interactive owner dashboard sign-in remain
-pending. Actual source push and first scheduled-run observations remain open;
-the GitHub configuration and authenticated delivery checks have passed.
+The owner then verified that Drop opened the reason picker and Cancel restored
+the buttons. Read-only comparison confirmed all 40 opportunities and 76 history
+records remained unchanged; the message version changed, the picker cleared,
+and the message lock was released. No real Drop was committed. Mutation and
+replay behavior are covered by regression tests, including failed-edit recovery;
+the live Drop/Cancel check does not claim a mutating-action replay.
+
+Interactive owner dashboard sign-in remains pending the authorized personal
+identity fix on unchanged hosting. Actual source push and first scheduled-run
+observations remain open; the GitHub configuration and authenticated delivery
+checks have passed.
 
 ## Historical production promotion
 
