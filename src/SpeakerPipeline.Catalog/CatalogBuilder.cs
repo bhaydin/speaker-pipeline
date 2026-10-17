@@ -124,7 +124,8 @@ public static class CatalogBuilder
                 if (talkId is not null && talk is null) issues.Add(new("UnknownTalk", f.Path, "Engagement references a missing talk; retained as unresolved history."));
                 var date = m.Date("date");
                 var notes = m.Text("notes") ?? "";
-                var precision = m.Text("date_precision") ?? (Regex.IsMatch(notes, @"(?i)TBD|unknown|placeholder|exact date|date.*confirm") || date is { Month: 1, Day: 1 } ? "unknown" : "day");
+                var precision = date is null ? "unknown" : m.Text("date_precision") ??
+                    (Regex.IsMatch(notes, @"(?i)TBD|unknown|placeholder|exact date|date.*confirm") || date is { Month: 1, Day: 1 } ? "unknown" : "day");
                 var eventUrl = SafeUrl(m.Text("event_url"));
                 var delivery = new CatalogDelivery
                 {
