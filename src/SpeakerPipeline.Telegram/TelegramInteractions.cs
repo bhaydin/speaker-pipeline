@@ -89,6 +89,8 @@ public sealed class TelegramInteractions(IOperationsApiClient operations, IOppor
             if (item.Resolution is not null)
             {
                 await AnswerValidatedAsync(callback.Id, item.Resolution, false, ct);
+                if (item.Resolution != "Changed elsewhere; use /status")
+                    updated = await RefreshResolutionAsync(state, item, ct);
             }
             else if (action == "d")
             {
@@ -115,14 +117,15 @@ public sealed class TelegramInteractions(IOperationsApiClient operations, IOppor
                     await client.EditAsync(state.ChatId, state.MessageId, await RenderAsync(updated, ct), Keyboard(updated), ct);
                     return;
                 }
-                var result = await opportunities.ApplyOpportunityActionAsync(item.EventSlug, new OpportunityActionRequest
+                await opportunities.ApplyOpportunityActionAsync(item.EventSlug, new OpportunityActionRequest
                 {
                     Action = selected.Value, ReasonCode = reason, IdempotencyKey = $"telegram-{item.Reference}-{action}",
                     DecisionId = item.DecisionId,
                 }, item.ExpectedETag, ct);
                 var resolution = selected == OpportunityAction.Snooze7Days ? "Snoozed 7 days" : selected == OpportunityAction.Drop ? "Dropped" : "Submitted";
                 updated = state with { Picker = null, Items = state.Items.Select(i => i.Reference == item.Reference ? i with { Resolution = resolution } : i).ToArray() };
-                _ = result;
+                // Record acceptance before refreshing: a failed read/edit must never repeat the mutation.
+                updated = await RefreshResolutionAsync(updated, item, ct);
             }
             await client.EditAsync(state.ChatId, state.MessageId, await RenderAsync(updated, ct), Keyboard(updated), ct);
         }
@@ -140,6 +143,19 @@ public sealed class TelegramInteractions(IOperationsApiClient operations, IOppor
             await operations.SaveAsync(OperationState.Document("messages", reference.MessageKey,
                 updated with { LockedUntilUtc = null }, time.GetUtcNow()), locked.Version, CancellationToken.None);
         }
+    }
+
+    private async Task<TelegramMessageState> RefreshResolutionAsync(TelegramMessageState state, TelegramMessageItem item, CancellationToken ct)
+    {
+        // Command replay returns the original receipt. Rendering explicitly reads today's state,
+        // including a later dashboard move between the accepted action and message-edit repair.
+        var current = await opportunities.GetOpportunityAsync(item.EventSlug, ct);
+        if (current is null) return state;
+        var resolution = current.DoNotResurface ? "Dropped"
+            : current.Status is OpportunityStatus.Submitted or OpportunityStatus.Accepted or OpportunityStatus.Delivered or OpportunityStatus.Rejected or OpportunityStatus.Dropped ? current.Status.ToString()
+            : current.SnoozedUntilUtc > time.GetUtcNow() ? "Snoozed 7 days"
+            : current.Status switch { OpportunityStatus.SubmitNow => "Submit now", OpportunityStatus.NotPursuing => "Not pursuing", _ => current.Status.ToString() };
+        return state with { Items = state.Items.Select(i => i.Reference == item.Reference ? i with { Resolution = resolution } : i).ToArray() };
     }
 
     private async Task AnswerValidatedAsync(string callbackId, string text, bool alert, CancellationToken ct)

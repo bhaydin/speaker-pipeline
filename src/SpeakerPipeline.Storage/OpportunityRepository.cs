@@ -138,6 +138,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
             var created = new OpportunityRecord
             {
                 Event = record with { ETag = null, ScoringInputRevision = 0, RepeatTalkOverride = false, RecordedSubmissionStatus = null },
+                ETag = NewVersion(),
                 UserStatus = record.Category == EventCategory.Quarantine ? OpportunityStatus.Review : null,
                 PlacementSource = PlacementSource.Pipeline,
             };
@@ -174,6 +175,10 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
     private async Task<OpportunityRecord> CommitAsync(TableEntity original, OpportunityRecord updated, OpportunityHistoryEntry history, string key, string fingerprint, CancellationToken ct)
     {
         ValidateKey(key);
+        // The API version is allocated before committing so the current row and immutable
+        // command receipt contain exactly the same accepted result. Azure's physical ETag
+        // remains the transaction precondition, separate from this opaque API token.
+        updated = updated with { ETag = NewVersion() };
         var row = Write(original, updated);
         var audit = new TableEntity(updated.Slug, history.Id)
         {
@@ -186,7 +191,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
         {
             ["Kind"] = "Command", ["Fingerprint"] = fingerprint,
         };
-        WritePayload(command, "Result", JsonSerializer.Serialize(updated with { ETag = "" }, Json));
+        WritePayload(command, "Result", JsonSerializer.Serialize(updated, Json));
         try
         {
             await client.SubmitTransactionAsync([
@@ -201,7 +206,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
             if (replay is not null) return replay;
             throw new OpportunityConflictException("Opportunity changed. Refresh before retrying.", await GetAsync(updated.Slug, ct).ConfigureAwait(false));
         }
-        return (await GetAsync(updated.Slug, ct).ConfigureAwait(false))!;
+        return updated;
     }
 
     public async Task<OpportunityRecord> ReconcileSubmissionsAsync(string slug, IReadOnlyList<SubmissionRecord> submissions, string expectedETag, CancellationToken ct = default)
@@ -234,7 +239,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
         if (!response.HasValue) return null;
         if (response.Value!.GetString("Fingerprint") != fingerprint)
             throw new ArgumentException("Idempotency key has already been used for a different command.");
-        return await GetAsync(slug, ct).ConfigureAwait(false) ?? Deserialize<OpportunityRecord>(ReadPayload(response.Value, "Result"));
+        return Deserialize<OpportunityRecord>(ReadPayload(response.Value, "Result"));
     }
 
     private async Task<TableEntity> LoadAsync(string slug, CancellationToken ct)
@@ -255,7 +260,8 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
     internal static OpportunityRecord Read(TableEntity entity)
     {
         var state = Deserialize<OpportunityRecord>(ReadPayload(entity, "OpportunityJson"));
-        return state with { ETag = entity.ETag.ToString() };
+        // Existing/migrated rows predate logical API versions and remain usable without a rewrite.
+        return string.IsNullOrEmpty(state.ETag) ? state with { ETag = entity.ETag.ToString() } : state;
     }
 
     internal static TableEntity Write(TableEntity original, OpportunityRecord record)
@@ -263,7 +269,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
         var row = new TableEntity(original.ToDictionary(p => p.Key, p => p.Value)) { PartitionKey = record.Slug, RowKey = CurrentRow, ETag = original.ETag };
         // Preserve unknown source columns. JSON is authoritative; typed fields support future filters.
         row["Kind"] = "Current";
-        WritePayload(row, "OpportunityJson", JsonSerializer.Serialize(record with { ETag = "" }, Json));
+        WritePayload(row, "OpportunityJson", JsonSerializer.Serialize(record, Json));
         row["Status"] = record.Status.ToString();
         row["CfpDeadline"] = record.Event.CfpDeadline?.UtcDateTime;
         row["ScoringInputRevision"] = record.ScoringInputRevision;
@@ -300,6 +306,7 @@ internal sealed class OpportunityRepository(TableClient client, TimeProvider clo
         if (string.IsNullOrWhiteSpace(key) || key.Length > 200) throw new ArgumentException("An idempotency key of at most 200 characters is required.");
     }
     private static string HistoryId(DateTimeOffset now, string key) => $"history-{now.UtcTicks:D19}-{Hash(key)}";
+    private static string NewVersion() => $"\"{Guid.NewGuid():N}\"";
     private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     private static T Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Json) ?? throw new InvalidOperationException("Invalid opportunity payload.");
 }

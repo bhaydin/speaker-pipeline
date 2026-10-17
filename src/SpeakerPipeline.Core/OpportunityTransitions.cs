@@ -57,6 +57,7 @@ public static class OpportunityTransitions
         OpportunityStatus.New or OpportunityStatus.NotPursuing => 0,
         OpportunityStatus.Monitor => 1, OpportunityStatus.Outreach => 2,
         OpportunityStatus.SubmitNow => 3, OpportunityStatus.Drafting => 4,
+        OpportunityStatus.Submitted => 5, OpportunityStatus.Accepted => 6, OpportunityStatus.Delivered => 7,
         _ => -1,
     };
 }
