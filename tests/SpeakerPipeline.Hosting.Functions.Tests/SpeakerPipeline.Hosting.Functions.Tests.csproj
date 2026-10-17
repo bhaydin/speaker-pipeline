@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SpeakerPipeline.Hosting.Functions\SpeakerPipeline.Hosting.Functions.csproj" />
+  </ItemGroup>
+</Project>

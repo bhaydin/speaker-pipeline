@@ -14,6 +14,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SpeakerPipeline.Hosting.Functions.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SpeakerPipeline.Core\SpeakerPipeline.Core.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Client\SpeakerPipeline.Client.csproj" />
     <ProjectReference Include="..\SpeakerPipeline.Agents.Scoring\SpeakerPipeline.Agents.Scoring.csproj" />
