@@ -9,7 +9,7 @@
             <p><strong>@match.Title</strong><br />@match.Rationale<br /><small class="muted">Talk @match.TalkId · version @match.VersionId</small></p>
         }
         <div class="score-strip"><span>Fit <b>@decision.FitScore/10</b></span><span>Preparation effort <b>@decision.EffortScore/10</b></span><span>Confidence <b>@decision.ConfidenceScore/10</b></span></div>
-        <small class="muted">@(decision.RubricVersion is "v4" or "v5" ? "Higher effort means more work." : "Historical effort scale; not converted.") Rubric @decision.RubricVersion.</small>
+        <small class="muted">@(decision.RubricVersion is "v4" or "v5" or "v6" ? "Higher effort means more work." : "Historical effort scale; not converted.") Rubric @decision.RubricVersion.</small>
         @if (!string.IsNullOrWhiteSpace(decision.EffortRationale)) { <p>@decision.EffortRationale</p> }
         @if (!string.IsNullOrWhiteSpace(decision.GeographyRationale)) { <p>@decision.GeographyRationale</p> }
         @if (Entry.EventSnapshot is { } facts)

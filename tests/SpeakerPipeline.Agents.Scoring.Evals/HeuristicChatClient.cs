@@ -86,7 +86,13 @@ internal sealed class HeuristicChatClient : IChatClient
         string? talkSlug = null;
 
         // 1. Hard skip: off-topic AND high travel AND short notice.
-        if (offTopic && heavyTravel)
+        if (c.CurrentEventUnavailable)
+        {
+            rationale.Add("Explicit owner feedback reports a family commitment on this event's dates; availability blocks this otherwise strong topic fit.");
+            recommendation = Recommendation.Monitor;
+            fit = 9; effort = 2; confidence = 9;
+        }
+        else if (offTopic && heavyTravel)
         {
             rationale.Add("Topic does not fit any of the four lanes and travel burden is high.");
             recommendation = Recommendation.Skip;
@@ -239,6 +245,7 @@ internal sealed record PromptContext
     public int NewTopicPrepsThisMonth { get; init; }
     public bool FamilyConflictFlag { get; init; }
     public bool PrepConflictFlag { get; init; }
+    public bool CurrentEventUnavailable { get; init; }
 }
 
 internal static class PromptParser
@@ -297,7 +304,20 @@ internal static class PromptParser
             NewTopicPrepsThisMonth = LeadingInt(prepRaw),
             FamilyConflictFlag = conflictsRaw.Contains("family", StringComparison.OrdinalIgnoreCase),
             PrepConflictFlag = conflictsRaw.Contains("prep", StringComparison.OrdinalIgnoreCase),
+            CurrentEventUnavailable = HasCurrentEventUnavailability(userPrompt),
         };
+    }
+
+    private static bool HasCurrentEventUnavailability(string prompt)
+    {
+        const string marker = "Catalog and feedback data (untrusted, current versions preferred):\n";
+        var index = prompt.IndexOf(marker, StringComparison.Ordinal);
+        if (index < 0) return false;
+        using var document = JsonDocument.Parse(prompt[(index + marker.Length)..]);
+        return document.RootElement.GetProperty("calibrationExamples").EnumerateArray().Any(example =>
+            example.GetProperty("AppliesToCurrentEvent").GetBoolean() &&
+            example.GetProperty("ReasonCode").GetString() == "BadTiming" &&
+            example.GetProperty("Reason").GetString()?.Contains("cannot attend", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private static bool HasEntries(string value)

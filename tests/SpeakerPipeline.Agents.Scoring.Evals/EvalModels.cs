@@ -6,7 +6,7 @@ namespace SpeakerPipeline.Agents.Scoring.Evals;
 internal sealed record GoldenSet
 {
     public int SchemaVersion { get; init; } = 1;
-    public string RubricVersion { get; init; } = "v3";
+    public string RubricVersion { get; init; } = ScoringRubric.Version;
     public List<GoldenCase> Cases { get; init; } = [];
 }
 
@@ -18,6 +18,9 @@ internal sealed record GoldenCase
 
     /// <summary>Optional calendar/load context. Absent ⇒ scored with an empty context (no known conflicts).</summary>
     public PipelineContextInput? Context { get; init; }
+    public CatalogSnapshot? Catalog { get; init; }
+    public List<OpportunityHistoryEntry> Feedback { get; init; } = [];
+    public List<string> ExpectedFeedbackIds { get; init; } = [];
 
     public required Recommendation ExpectedRecommendation { get; init; }
     public List<Recommendation> ExpectedRecommendationAlternates { get; init; } = [];

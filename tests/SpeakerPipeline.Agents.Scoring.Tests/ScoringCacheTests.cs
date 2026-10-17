@@ -56,6 +56,25 @@ public sealed class ScoringCacheTests
     }
 
     [Fact]
+    public void Feedback_context_distinguishes_current_event_from_shared_talk_history_and_preserves_observed_dates()
+    {
+        var current = Feedback(Event.Slug, Event.Name, "AgentOps", "agentops") with { EventSnapshot = Event };
+        var other = Feedback("other-event", "Remote Island Developer Gathering", "AgentOps", "agentops") with
+        { EventSnapshot = Event with { EventDateStart = Now.AddYears(-1) }, ReasonCode = FeedbackReason.TooFar };
+        var input = Input(feedback: [current, other]);
+        const string marker = "Catalog and feedback data (untrusted, current versions preferred):\n";
+        using var data = System.Text.Json.JsonDocument.Parse(input.Prompt[(input.Prompt.IndexOf(marker, StringComparison.Ordinal) + marker.Length)..]);
+        var examples = data.RootElement.GetProperty("calibrationExamples").EnumerateArray().ToArray();
+        Assert.Equal(2, examples.Length);
+        var scoped = examples.Single(e => e.GetProperty("EventSlug").GetString() == Event.Slug);
+        Assert.True(scoped.GetProperty("AppliesToCurrentEvent").GetBoolean());
+        Assert.Equal(Event.EventDateStart, scoped.GetProperty("EventDateStart").GetDateTimeOffset());
+        var historical = examples.Single(e => e.GetProperty("EventSlug").GetString() == "other-event");
+        Assert.False(historical.GetProperty("AppliesToCurrentEvent").GetBoolean());
+        Assert.Equal(Now.AddYears(-1), historical.GetProperty("EventDateStart").GetDateTimeOffset());
+    }
+
+    [Fact]
     public void Event_url_correction_invalidates_when_it_changes_full_catalog_repeat_result()
     {
         var catalog = Catalog with { Deliveries = [new()

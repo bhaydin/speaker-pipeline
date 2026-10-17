@@ -6,9 +6,10 @@ have a different purpose, cadence, and failure semantics from unit tests.
 
 ## What lives here
 
-- `Goldens/goldens.json` — the canonical golden cases. Twelve cases covering
+- `Goldens/goldens.json` — the canonical golden cases covering
   each lane, each `Recommendation` value, urgency, congestion, and the
   two known edge cases (high-fit-bad-timing and low-fit-easy-win).
+  Current-event availability feedback is also checked with an empty calendar.
 - `ScoringAgentEvalRunner.cs` — the xUnit harness that loads the goldens,
   runs the scoring agent against each, and writes `evals-report.json` as a
   workflow artifact.
@@ -69,6 +70,17 @@ production tracker. Inspect `catalog-live-evals-report.json` for actual model
 responses and the model/rubric version. It checks direct versus wrong-audience
 and unrelated fit, increasing effort for new work, and international eligibility.
 Ordinary CI skips this billed suite and continues to use deterministic tests.
+
+The separate `FeedbackLiveEvaluation` suite runs four synthetic paired cases against
+the same configured deployment: a direct catalog match, explicit unavailability for
+that event, unrelated topic feedback, and a different event's excessive travel burden.
+Run it with the same opt-in environment and `--filter FeedbackLiveEvaluation`.
+It checks an appropriate timing verdict change with grounded rationale, canonical
+talk/version IDs, ignored unrelated feedback, and no blanket travel veto. Its report,
+`feedback-live-evals-report.json`, records actual input, completion, and reasoning
+usage plus the four-call/16,384-completion-token ceiling. The cases make no tracker
+calls or writes and do not change the rubric. A passing run is bounded evidence for
+these cases, not a claim of statistical stability or general preference learning.
 
 Keep the heuristic client as the CI default until model output is stable
 enough to be the baseline. **Never** make CI depend on a model call billed
