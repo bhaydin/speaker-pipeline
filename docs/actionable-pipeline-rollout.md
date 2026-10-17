@@ -162,8 +162,25 @@ an unchanged snapshot reused all decisions with no model calls and confirmed
 email delivery. See the [deployment record](../.azure/deployment-plan.md) for
 release provenance and current gates.
 
-Acceptance still requires interactive owner sign-in, GitHub Push subscription
-and actual webhook delivery, Telegram credential replacement and real callback
-editing/replay, and the next scheduled observations. Preserve any explicit pause
-until its own acceptance gate passes. No organizer outreach, CFP submission,
-publishing, or source-repository writing is part of this release.
+The dedicated GitHub App and its installation subscribe to Push and retain
+read-only access to exactly the two intended repositories. GitHub-delivered ping
+and installation events returned HTTP 202 with SSL verification enabled. A real
+push has not yet exercised the catalog reconciliation path.
+
+The Telegram credential was rotated for the same bot: the replacement works,
+the previous token returns 401, and the Key Vault reference resolves. Inbound
+authentication checks passed. A real `/status` command exposed Telegram's
+rejection of a null reply markup value. The fix passed main CI and deployed
+successfully, with both hosts passing authenticated readiness. Two queued real
+`/status` commands then succeeded. A controlled scoring run reused 36 decisions,
+scored two new opportunities, and delivered three Telegram parts and one email
+with completed durable receipts. Post-readiness telemetry showed no handler
+failures or matches for the checked credential patterns. Callback state,
+message editing, and replay verification remain pending.
+
+Acceptance still requires interactive owner sign-in and the remaining Telegram
+callback checks. An actual source push and the first scheduled runs remain
+future observations; GitHub configuration and authenticated delivery are
+verified. Preserve any explicit pause until its own acceptance gate passes. No
+organizer outreach, CFP submission, publishing, or source-repository writing is
+part of this release.
