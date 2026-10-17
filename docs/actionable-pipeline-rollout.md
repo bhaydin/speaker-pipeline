@@ -155,12 +155,26 @@ unit/integration tests, starts isolated Azurite for real conditional Table
 transactions and snapshot restoration, and compiles Bicep. Live model evaluation
 is explicitly opt-in and uses synthetic examples without tracker writes.
 
-The final v5 real-model calibration exercised five cases: direct match, wrong
+The earlier v5 real-model calibration exercised five cases: direct match, wrong
 audience, unrelated topic, new workshop, and international strong fit. It used
 7,767 input tokens and 2,483 completion tokens (including 1,024 reasoning tokens).
 Observed fit anchors were 10, 5, 1, 9, and 10 respectively; preparation effort was
 2 for reuse and 8 for new workshop material. This is evidence for those cases,
 not a claim that all future decisions are calibrated.
+
+Before v6 deployment, four additional synthetic model cases exposed a v5 gap:
+explicit owner unavailability for the current event did not change SubmitNow.
+The v6 clarification produced SubmitNow, Pass, SubmitNow, and SubmitNow for the
+baseline, same-event unavailability, unrelated topic feedback, and another
+event's excessive travel burden. Saved model responses passed the corrected
+offline assertions after the original wording check omitted the equivalent
+word "unavailability". No additional model calls were needed for that correction.
+All five calibration cases also passed under v6, with fit 9, 5, 1, 9, 9 and effort
+2, 7, 1, 9, 2. The nine v6 calls used 15,453 input and 4,695 completion tokens;
+1,984 reasoning tokens are already included in completion usage. These bounded
+evaluations made no tracker writes and do not prove statistical stability.
+They establish predeployment evidence, not production activation. Preserve the
+synthetic reports privately with the release evidence.
 
 The current production cutover completed the isolated restore rehearsal,
 opportunity migration, authority switch, and read-only catalog publication.
