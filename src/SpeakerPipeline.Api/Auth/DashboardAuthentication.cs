@@ -85,6 +85,7 @@ public static class DashboardAuthentication
                 options.ClientId = section["ClientId"];
                 options.ClientSecret = section["ClientSecret"];
                 options.ResponseType = OpenIdConnectResponseType.Code;
+                options.Prompt = "select_account";
                 options.UsePkce = true;
                 options.MapInboundClaims = false;
                 options.SaveTokens = false;
